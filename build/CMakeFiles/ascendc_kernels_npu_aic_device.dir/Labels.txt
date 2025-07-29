@@ -1,0 +1,13 @@
+# Target labels
+ ascendc_kernels_npu_aic_device
+# Source files and their labels
+/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_aic_device
+/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_aic_device.rule
+/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_aic_device-complete.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-build.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-configure.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-download.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-install.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-mkdir.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-patch.rule
+/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/ascendc_kernels_npu_aic_device-update.rule

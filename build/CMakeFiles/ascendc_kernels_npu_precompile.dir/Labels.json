@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_precompile"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_precompile.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_precompile-complete.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-build.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-configure.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-download.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-install.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-mkdir.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-patch.rule"
+		},
+		{
+			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"ascendc_kernels_npu_precompile"
+		],
+		"name" : "ascendc_kernels_npu_precompile"
+	}
+}
