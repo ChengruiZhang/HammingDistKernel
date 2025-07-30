@@ -54,8 +54,9 @@ if __name__ == "__main__":
         print("Not enough input Num")
         sys.exit(1)
 
-    B, S, Hq, group, D = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])  # => Hk = Hq // group = 4
-    Hk = Hq // group
+    B, S, Hq, Hk, D = int(sys.argv[1]), int(sys.argv[2]), int(sys.argv[3]), int(sys.argv[4]), int(sys.argv[5])  # => Hk = Hq // group = 4
+    group = Hq // Hk
+    assert(Hq % Hk == 0)
     hashGroup = 16 # bool 16 --> uint16
     D_Block = int(D / hashGroup)
     topk = int(sys.argv[6])
