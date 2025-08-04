@@ -1,5 +1,5 @@
 /**
- * @file Hamming_custom_tiling.h
+ * @file hamming_dist_top_k_custom_tiling.h
  *
  * Copyright (C) 2025. Huawei Technologies Co. Ltd. All rights reserved.
  *
@@ -12,59 +12,44 @@
 #include <cstdint>
 
 struct HammingTilingData {
+    
     // basic info
     uint32_t batchSize;
     uint32_t seqLen;
+    uint32_t hidDim;
+    uint32_t hidDimCompress; // bool -- int16/int8
     uint32_t totalNum; // totalNum = batchSize * seqLen
     uint32_t groupNum; // headQ / headK
-    uint32_t chunkSize;
-    uint32_t chunkNum; // TBD add assert SeqLen / chunkSize 
-    uint32_t compressTopK; // TopK / chunkSize 
-
+    uint32_t chunkSize; // topk compress block -- 这里会有非整数问题
+    uint32_t chunkNum; // ceil(SeqLen/chunkSize) 
+    uint32_t compressTopK; // need add assert TopK/chunkSize 
+    
     // Core Offset
     uint32_t qHashCoreOffset;
     uint32_t kHashCoreOffset;
     uint32_t indexCoreOffset;
 
     // tiling info
-    uint32_t hDimTilingLen;
-    uint32_t hDimTilingNum; // contain tail
-    uint32_t hDimTilingTailLen;
-
     uint32_t seqLenTilingLen;
     uint32_t seqLenTilingNum;
     uint32_t seqLenTilingTailLen;
+    
+    // 这里的hDim均为压缩后的
+    uint32_t hDimTilingLen;
+    uint32_t hDimTilingNum; // contain tail
+    uint32_t hDimTilingTailLen;
+    
+    // Size info -- elements, not byte
+    uint32_t bufferNum;
+    uint32_t qHashTilingSize; // contain buffer num
+    uint32_t qHashSingleTilingSize; // contain buffer num    
+    uint32_t kHashTilingSize;
+    uint32_t kHashSingleTilingSize;
+    // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
+    uint32_t qHashGroupSize;  // contain buffer num  
+    uint32_t qHashGroupSingleSize;
+    uint32_t indexSize;  // contain buffer num  
+    uint32_t indexSingleSize;
 
-    // before
-
-    uint32_t formerCoreBlockLength;
-    uint32_t formerCoreBlockNum;
-
-    uint32_t tailCoreBlockNum;
-    uint32_t tailCoreBlockLength;
-
-    uint32_t xLen;
-    uint32_t yLen;
-    uint32_t coef;
-    uint32_t axis;
-    uint32_t dataType;
-
-    uint32_t isEvenCore;
-    uint32_t blockLength;
-    uint32_t tileNum;
-    uint32_t tileLength;
-    uint32_t lastTileLength;
-
-    uint32_t formerNum;
-    uint32_t formerLength;
-    uint32_t formerTileNum;
-    uint32_t formerTileLength;
-    uint32_t formerLastTileLength;
-
-    uint32_t tailNum; 
-    uint32_t tailLength;
-    uint32_t tailTileNum;
-    uint32_t tailTileLength;
-    uint32_t tailLastTileLength;
 };
 #endif

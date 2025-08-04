@@ -13,6 +13,7 @@
 
 constexpr int32_t UB_SIZE = 256; // 256 KB
 
+using namespace AscendC
 
 template <typename hashDataType> 
 class KernelHammingDistTopK {
@@ -28,37 +29,194 @@ public:
     template<int32_t BUFFER_NUM>
     __aicore__ inline void Init(GM_ADDR qHash, GM_ADDR kHash, GM_ADDR index, HammingTilingData tiling)
     {
-        GM_ADDR qHash_ = qHash;
-        GM_ADDR kHash_ = kHash;
 
-        auto blockidx = AscendC::GetBlockIdx();
-        qHashGm.SetGlobalBuffer();
-        kHashGm.SetGlobalBuffer();
-        indexGm.SetGlobalBuffer();
+        auto blockidx = GetBlockIdx();
+        qHashGm.SetGlobalBuffer((__gm__ *hashDataType) qHash);
+        kHashGm.SetGlobalBuffer((__gm__ *hashDataType) kHash);
+        indexGm.SetGlobalBuffer((__gm__ *int32_t) index);
 
         // parse tiling factor
-        this->tileNum = tiling.tileNum; // 此处的tiling是考虑包括
-        this->tileLength = tiling.tileLength / BUFFER_NUM;
+        param_.totalNum = tiling.totalNum;
+        param_.groupNum = tiling.groupNum;
+        param_.chunkSize = tiling.chunkSize;
+        param_.chunkNum = tiling.chunkNum;
+        param_.compressTopK = tiling.compressTopK;
+
+        // Core Offset
+        param_.qHashCoreOffset = tiling.qHashCoreOffset;
+        param_.kHashCoreOffset = tiling.kHashCoreOffset;
+        param_.indexCoreOffset = tiling.indexCoreOffset;
+
+        // tiling info
+        param_.seqLenTilingLen = tiling.seqLenTilingLen;
+        param_.seqLenTilingNum = tiling.seqLenTilingNum;    // contain tail
+        param_.seqLenTilingTailLen = tiling.seqLenTilingTailLen;
         
-        // AscendC::PRINTF("L682");
-        if (qHash)
-            return;
-        if (kHash)
-            return;
-        if (index)
-            return;
-        (void)tiling;
+        param_.hDimTilingLen = tiling.hDimTilingLen;
+        param_.hDimTilingNum = tiling.hDimTilingNum;        // contain tail
+        param_.hDimTilingTailLen = tiling.hDimTilingTailLen;
+
+        // Size info -- elements, not byte
+        param_.bufferNum = tiling.bufferNum;
+        param_.qHashTilingSize = tiling.qHashTilingSize;    // contain buffer num  
+        param_.qHashSingleTilingSize = tiling.qHashSingleTilingSize;
+        param_.kHashTilingSize = tiling.kHashTilingSize;    // contain buffer num  
+        param_.kHashSingleTilingSize = tiling.kHashSingleTilingSize;
+        // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
+        param_.qHashGroupSize = tiling.qHashGroupSize;      // contain buffer num  
+        param_.qHashGroupSingleSize = tiling.qHashGroupSingleSize;
+        param_.indexSize = tiling.indexSize;                // contain buffer num  
+        param_.indexSingleSize = tiling.indexSingleSize;
 
     }
 
-    /*
-    * @brief: 获取每一个核的偏移：对于GM的qkhash读取位置，以及写入index的位置；
-    * 此外，计算出当前核对应的输出大小MLen、NLen
+    /* @brief: 搬入数据
+    * Dst tensor, Src tensor
     */
-    __aicore__ inline void GetCoreOffset(int64_t coreidx_){
-        qHashCoreOffset;
-        kHashCoreOffset;
-        indexCoreOffset;
+    template <typename T = uint16_t>
+    __aicore__ inline DataCopyInCustom(LocalTensor<T>& dst, GlobalTensor<T>& src, 
+                                     int64_t dstOffset, int64_t srcOffset, 
+                                     int64_t blockLen, int64_t blockCount;
+                                     int64_t dstStride = 0, int64_t srcStride = 0){
+        
+        DataCopyParams dataCopyParams;
+        dataCopyParams.blockCount = blockCount;
+        dataCopyParams.blockLen = blockLen;
+        dataCopyParams.dstStride = dstStride;
+        dataCopyParams.srcStride = srcStride;
+
+        DataCopy(dst, src, dataCopyParams);
+    }
+
+    /* @brief: 搬出数据
+    * Dst tensor, Src tensor
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline DataCopyOutCustom(GlobalTensor<T>& dst, LocalTensor<T>& src, 
+                                     int64_t dstOffset, int64_t srcOffset, 
+                                     int64_t blockLen, int64_t blockNum;
+                                     int64_t dstStride = 0, int64_t srcStride = 0){
+        
+        DataCopyParams dataCopyParams;
+        dataCopyParams.blockCount = blockCount;
+        dataCopyParams.blockLen = blockLen;
+        dataCopyParams.dstStride = dstStride;
+        dataCopyParams.srcStride = srcStride;
+
+        DataCopy(dst, src, dataCopyParams);
+    }
+
+
+    /* @brief: 对[M, N]的向量进行除法
+    * input: srcTensor, M, N, scalar, axis
+    * output: dstTensor
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline void TensorDiv(){
+        // 扩充
+    }
+
+
+    /* @brief: 处理对qhash的累加
+    * input: qHashRowtensor, qHash tensor, qHash [Dim1Len, Dim2Len], axis, curTile, 
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline void QHashGroup(LocalTensor<T>& outputRowtensor, LocalTensor<T>& qHash, 
+                                      uint32_t Dim1Len, uint32_t Dim2Len, bool axis, uint32_t curTile){
+        
+        for (uint32_t i = 0; i < param_.hDimTilingNum; i++){
+
+            auto tileLength = i == param_.hDimTilingNum - 1 ? param_.hDimTilingTailLen : param_.hDimTilingLen;   
+            auto groupLenth = param_.groupNum;
+            
+            int64_t dstOffset;
+            int64_t srcOffset;
+            int64_t blockLen;
+            int64_t blockNum;
+
+            // load qHash
+            DataCopyCustom(qHash, qHashGm, dstOffset, srcOffset, blockLen, blockNum);
+
+            CumSumConfig config;
+            config.isLastAxis = asix;
+            config.isReuseSource = true;
+            config.outputLastRow = true;
+
+            CumSumInfo cumSumInfo;
+            cumSumInfo.outter = Dim1Len;
+            cumSumInfo.inner = Dim2Len;
+
+            CumSum<config>(qHash, outputRowtensor, qHash, cumSumInfo);
+        }
+    }
+
+    /* @brief: 计算kHash和qHash的距离，通过求XOR和右移看奇偶获取汉明距离
+    * input: qHashGroup, kHash, kHash [Dim1Len, Dim2Len], curTile
+    * output: hammingUB
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline void Hamming(LocalTensor<T>& hamming, LocalTensor<T>& qHashGroup, LocalTensor<T>& kHash,
+                                   uint32_t Dim1Len, uint32_t curTile){
+        
+        for (uint32_t i = 0; i < param_.hDimTilingNum; i++){
+            
+            auto tileLength = i == param_.hDimTilingNum - 1 ? param_.hDimTilingTailLen : param_.hDimTilingLen;   
+            auto seqLen = Dim1Len;
+
+            int64_t dstOffset;
+            int64_t srcOffset;
+            int64_t blockLen;
+            int64_t blockNum;
+            
+            // load kHashTile
+            DataCopyCustom(kHash, kHashGm, dstOffset, srcOffset, blockLen, blockNum);
+
+            // compute Hamming
+            XOR(XORUB, );
+
+            for (uint32_t j = 0; j < sizeof(hashDataType); j++){
+                ShiftRight(XORUB, 1, )
+            }
+
+        }
+
+
+    }
+
+    /* @brief: 在这里对输入的序列进行Chunk缩减
+    * input: inTensor; ChunkSize, ChunkMode
+    * output: outTensor
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline void ChunkCompress(LocalTensor<T>& outTensor, LocalTensor<T>& inTensor, uint32_t chunkSize, uint32_t chunkMode){
+        
+    }
+
+    /* @brief: 在这里计算topk
+    * input: srcValueLocal, srcIndexLocal, k, 
+    * output: dstValueLocal, dstIndexLocal
+    */
+    template <typename T>
+    __aicore__ inline void TopKCustom(const LocalTensor<T> &dstValueLocal, const LocalTensor<int32_t> &dstIndexLocal,
+        const LocalTensor<T> &srcValueLocal, const LocalTensor<int32_t> &srcIndexLocal, const int32_t k, 
+        // 下面两个参数仍需修改
+        const HammingDistTopKTilingData &tiling, uint32_t n)
+    {
+        LocalTensor<bool> finishLocal;
+        TopKInfo topkInfo;
+        topkInfo.outter = tiling.params.outter;
+        topkInfo.n = n;
+        topkInfo.inner = matmul::CeilDiv(n, 32) * 32; /* 32: inner has to be aligned to 32 */
+        TopK<half, true, false, false, TopKMode::TOPK_NORMAL>(dstValueLocal, dstIndexLocal, srcValueLocal, srcIndexLocal, finishLocal, k, tiling.topkTiling, topkInfo, true);
+    }
+
+    template <typename T = half>
+    __aicore__ inline void SetTensorAddr(LocalTensor<T>& tensor, uint32_t dataLen, uint32_t bufferAddr, uint8_t logicPos){
+        TBuffAddr TBuffAddr_;
+        TBuffAddr_.dataLen = dataLen;
+        TBuffAddr_.bufferAddr = bufferAddr;
+        TBuffAddr_.logicPos = logicPos;
+        tensor.SetAddr(TBuffAddr_);
     }
 
     /* @brief:
@@ -67,32 +225,69 @@ public:
     */
     __aicore__ inline void Process()
     {
-        uint8_t blocknum = AscendC::GetBlockNum();
-        uint32_t loop_idx = AscendC::GetBlockIdx();
 
-        int32_t loop_ping_flag = 0;
-        
-        LocalTensor<int32_t> qHashUB, qHashGroupUB, kHashUB, indexHashUB;
-        AscendC::SetTensorAddr<>(localtensor, size, base, Tpos); // 此处设置的时候就需要考虑double buffer
-        
-        for (uint32_t loop_idx = GetBlockIdx(); loop_idx < totalNum; loop_idx += blocknum){
+        uint8_t blocknum = GetBlockNum();
+        int32_t loop_ping_flag = param_.bufferNum - 1;
+
+        for (uint32_t core_idx = GetBlockIdx(); core_idx < totalNum; core_idx += blocknum){
             
-            GetCoreOffset(loop_idx);
+            LocalTensor<int16_t> qHashUB, qHashGroupUB, kHashUB, indexChunkUB, 
+                                 hammingChunkUB, hammingUB, 
+                                 XORUB;
+            
+            int64_t qHash_base = 0;
+            int64_t qHashGroup_base = 0;
+            // int64_t kHash_base = qHash_base + param_.qHashTilingSize;
+            int64_t kHash_base = qHash_base;
+            int64_t index_base = 0;
 
-            auto qHashUB = loop_ping_flag ? L0C_base + L0C_PINGPONG_BUFFER_LEN : L0C_base;
-            auto kHashUB = loop_ping_flag ? L0C_base + L0C_PINGPONG_BUFFER_LEN : L0C_base;
-            auto indexHashUB = loop_ping_flag ? L0C_base + L0C_PINGPONG_BUFFER_LEN : L0C_base;
+            // 此处设置的时候就需要考虑double buffer
+            SetTensorAddr<hashDataType>(qHashUB, param_.qHashTilingSize, qHash_base, 9); 
+            SetTensorAddr<hashDataType>(HammingUB, XXX, qHash_base, 11); 
+            SetTensorAddr<hashDataType>(hammingChunkUB, XXX, qHash_base, 11); 
+            SetTensorAddr<hashDataType>(qHashGroupUB, param_.qHashGroupSize, qHashGroup_base, 11);
+            SetTensorAddr<hashDataType>(indexChunkUB, param_.indexSize, index_base, 10);
 
-            for (uint32_t seqLenTiling = 0; seqLenTiling < seqLenTilingNum; seqLenTiling += 1){
-                for (uint32_t hDimTiling = 0; hDimTiling < hDimTilingNum; hDimTiling += 1){
-                    QHashGroup(); // cumsum
-                    Hamming(); // [1, T_S]
-                }
-                ConCat(); // [1, S]
-                Block(); // [1, chunkNum]
-                TopK(); // [1, compressTopK]
+            auto qHashOffset = loop_ping_flag ? qHash_base + qHashSingleTilingSize : qHash_base;
+            auto qHashGroupOffset = loop_ping_flag ? qHashGroup_base + qHashGroupSingleSize : qHashGroup_base;
+            auto indexOffset = loop_ping_flag ? index_base + indexSingleSize : index_base;
+
+            // 先计算完全部的HDim
+            for (uint32_t hDimTiling = 0; hDimTiling < hDimTilingNum; hDimTiling += 1){
+                // 计算tile大小
+                auto curHDim = hDimTiling == hDimTilingNum - 1 ? param_.hDimTilingTailLen : param_.hDimTilingLen;
+                
+                // load qHash and compute qhashgroup
+                QHashGroup(qHashGroupUB, qHashUB, param_.groupNum, curHDim, false, hDimTiling); // cumsum
             }
-            CopyOut();
+
+            // 一次性算完全部qHash的group之后，保存group，此时可以复用qHash的内存空间
+            qHashUB.Free();
+            SetTensorAddr<hashDataType>(kHashUB, param_.kHashTilingSize, kHash_base, 9);
+            auto kHashOffset = loop_ping_flag ? kHash_base + kHashSingleTilingSize : kHash_base;
+
+            // 再计算汉明距离
+            for (uint32_t seqLenTiling = 0; seqLenTiling < seqLenTilingNum; seqLenTiling += 1){
+                // 计算tile大小
+                auto curSeqLen = seqLenTiling == seqLenTilingNum - 1 ? param_.seqLenTilingTailLen : param_.seqLenTilingLen;
+
+                Hamming(hammingUB, qHashGroupUB, kHash, curSeqLen, seqLenTiling); // [1, T_S]
+                
+                ChunkCompress(hammingChunkUB, hammingUB, param_.chunkSize, param_.chunkMode); // [1, chunkNum]
+
+                GenerateIndex(); // ArithProgression
+                TopKCustom(); // [1, compressTopK]
+            }
+
+            // get output GM offset
+            int64_t dstOffset;
+            int64_t srcOffset;
+            int64_t blockLen;
+            int64_t blockNum;
+
+            DataCopyOutCustom(indexGm, indexChunkUB, dstOffset, srcOffset, blockLen, blockNum);
+
+            loop_ping_flag = 1 - loop_ping_flag;
         }
     }
 
@@ -100,23 +295,22 @@ private:
 
     TilingParam param_;
     
-    // before
-    AscendC::TPipe pipe;
-    AscendC::TQue<AscendC::TPosition::VECIN, BUFFER_NUM> inQueueQHash;
-    AscendC::TQue<AscendC::TPosition::VECIN, BUFFER_NUM> inQueueKHash;
-    AscendC::TQue<AscendC::TPosition::VECOUT, BUFFER_NUM> outQueueZ;
+    // TPipe pipe;
+    // TQue<TPosition::VECIN, BUFFER_NUM> inQueueQHash;
+    // TQue<TPosition::VECIN, BUFFER_NUM> inQueueKHash;
+    // TQue<TPosition::VECOUT, BUFFER_NUM> outQueueZ;
 
-    AscendC::TBuf<AscendC::TPosition::VECCALC> tmpBuf2;
+    // TBuf<TPosition::VECCALC> tmpBuf2;
 
-    AscendC::GlobalTensor<hashDataType> xGm;
-    AscendC::GlobalTensor<hashDataType> yGm;
-    AscendC::GlobalTensor<hashDataType> zGm;
+    GlobalTensor<hashDataType> qHashGm;
+    GlobalTensor<hashDataType> kHashGm;
+    GlobalTensor<hashDataType> indexGm;
 
-    uint32_t coef;
-    uint32_t tileNum;
-    uint32_t tileLength;
-    // uint32_t 
-    uint32_t lastTileLength;
+    // uint32_t coef;
+    // uint32_t tileNum;
+    // uint32_t tileLength;
+    // // uint32_t 
+    // uint32_t lastTileLength;
 };
 
 extern "C" __global__ __aicore__ void hamming_dist_top_k_custom(GM_ADDR qHash, GM_ADDR kHash, GM_ADDR index, HammingTilingData tiling)

@@ -23,6 +23,10 @@ extern void GenerateTilingData(uint8_t* tilingBuf, uint32_t blockDim);
 const double PEAK_CUBE_FLOPS = 294.912;
 const double PEAK_VEC_FLOPS = 9.216;
 
+typedef GM_QHASH_TYPE uint16_t;
+typedef GM_KHASH_TYPE uint16_t;
+typedef GM_IDX_TYPE uint32_t;
+
 /*
 @brief Main function for Hamming distance top-k custom kernel with tiling support.
 @param qhash: [B, 1, Hq, D], bool --> [B, 1, Hq, D], uint16_t -- 重要：为了保证右移计算的正确性，所有数据将会转化为uint16_t类型，可以按照其他类型输入，但会转化成uint16
@@ -33,7 +37,7 @@ const double PEAK_VEC_FLOPS = 9.216;
 
 int32_t main(int32_t argc, char *argv[])
 {
-    uint32_t batchSize, seqLen, headQ, headK, hidDim, topK;
+    uint32_t batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize;
 
     // parse args
     batchSize = std::stoi(argv[1]);
@@ -42,22 +46,25 @@ int32_t main(int32_t argc, char *argv[])
     headK = std::stoi(argv[4]);
     hidDim = std::stoi(argv[5]);
     topK = std::stoi(argv[6]);
-    int32_t deviceId = std::stoi(argv[7]);
+    chunkSize = std::stoi(argv[7])
+    int32_t deviceId = std::stoi(argv[8]);
 
-    fprintf(stderr, "Operator Input Params: batchSize=%d, seqLen=%d, headQ=%d, headK=%d, hidDim=%d, topK=%d\n", batchSize, seqLen, headQ, headK, hidDim, topK);
+    fprintf(stderr, "Operator Input Params: batchSize=%d, seqLen=%d, headQ=%d, headK=%d, hidDim=%d, topK=%d, chunkSize=%d\n", 
+            batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize);
 
     assert(headQ % headK == 0 && "headQ must be divisible by headK");
-    assert(hidDim % sizeof(GM_qHash_type) == 0 && "hidDim must be divisible by 16");
+    assert(hidDim % sizeof(GM_QHASH_TYPE) == 0 && "hidDim must be divisible by 16");
 
-    size_t qHashFileSize = batchSize * 1 * headQ * hidDim / sizeof(GM_qHash_type) * sizeof(GM_qHash_type); // uint16_t represent 16 bool
-    size_t kHashFileSize = batchSize * seqLen * headK * hidDim / sizeof(GM_kHash_type) * sizeof(GM_kHash_type);
-    size_t indexFileSize = batchSize * headK * topK * sizeof(GM_idx_type);
+    size_t qHashFileSize = batchSize * 1 * headQ * hidDim / sizeof(GM_QHASH_TYPE) * sizeof(GM_QHASH_TYPE); // uint16_t represent 16 bool
+    size_t kHashFileSize = batchSize * seqLen * headK * hidDim / sizeof(GM_KHASH_TYPE) * sizeof(GM_KHASH_TYPE);
+    auto compressedTopK = (topK + chunkSize - 1) / chunkSize;
+    size_t indexFileSize = batchSize * headK * compressedTopK * sizeof(GM_IDX_TYPE);
 
     // 待定
     constexpr uint32_t BLOCK_DIM = VEC_NUM;
     uint8_t *tiling = nullptr;
     // constexpr uint32_t DATA_TYPE_SIZE[] = {2, 2, 4, 1, 2, 4};
-    size_t tilingSize = 20 * sizeof(uint32_t);
+    size_t tilingSize = 19 * sizeof(uint32_t);
 
 #ifdef ASCENDC_CPU_DEBUG
     tiling = (uint8_t *)AscendC::GmAlloc(tilingSize);

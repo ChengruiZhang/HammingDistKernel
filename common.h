@@ -8,5 +8,6 @@ const double GM_BW = 1420;
 const double PEAK_FLOPS = 294.912;
 const int VEC_NUM = 40;
 const int CUBE_NUM = 20;
+const int UB_SIZE = 256; // KB
 
 const int COMPRESS_NUM = 16;  // 16 bits for int16_t --> 1 int16_t represents 16 bools
