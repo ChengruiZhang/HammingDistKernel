@@ -65,8 +65,8 @@ public:
         // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
         param_.qHashGroupSize = tiling.qHashGroupSize;      // contain buffer num  
         param_.qHashGroupSingleSize = tiling.qHashGroupSingleSize;
-        param_.indexSize = tiling.indexSize;                // contain buffer num  
-        param_.indexSingleSize = tiling.indexSingleSize;
+        param_.indexChunkTilingSize = tiling.indexChunkTilingSize;                // contain buffer num  
+        param_.indexChunkSingleTilingSize = tiling.indexChunkSingleTilingSize;
 
     }
 
@@ -152,7 +152,7 @@ public:
 
     /* @brief: 计算kHash和qHash的距离，通过求XOR和右移看奇偶获取汉明距离
     * input: qHashGroup, kHash, kHash [Dim1Len, Dim2Len], curTile
-    * output: hammingUB
+    * output: hammingSumUB
     */
     template <typename T = uint16_t>
     __aicore__ inline void Hamming(LocalTensor<T>& hamming, LocalTensor<T>& qHashGroup, LocalTensor<T>& kHash,
@@ -229,30 +229,55 @@ public:
         uint8_t blocknum = GetBlockNum();
         int32_t loop_ping_flag = param_.bufferNum - 1;
 
+        // VECIN
+        int64_t qHashBaseUB = 0;
+        int64_t kHashBaseUB = qHashBaseUB + param_.qHashTilingSize;
+        // VECALC
+        int64_t XORBaseUB = 0;
+        int64_t rightShiftBaseUB = XORBaseUB + param_.hammingGroupTilingSize;
+        int64_t hammingGroupBaseUB = rightShiftBaseUB + param_.hammingGroupTilingSize;
+        int64_t hammingSumBaseUB = hammingGroupBaseUB + param_.hammingGroupTilingSize;
+        int64_t hammingChunkBaseUB = hammingSumBaseUB + param_.hammingSumTilingSize;
+        // VECOUT
+        int64_t indexChunkBaseUB = 0;
+        int64_t topKChunkBaseUB = indexChunkBaseUB + param_.indexChunkTilingSize;
+
         for (uint32_t core_idx = GetBlockIdx(); core_idx < totalNum; core_idx += blocknum){
             
-            LocalTensor<int16_t> qHashUB, qHashGroupUB, kHashUB, indexChunkUB, 
-                                 hammingChunkUB, hammingUB, 
-                                 XORUB;
+            LocalTensor<int16_t> qHashUB, kHashUB, // input
+                                 XORUB, rightShiftUB, // hamming intermediate
+                                 hammingGroupUB, hammingSumUB, hammingChunkUB, // hamming result 
+                                 indexChunkUB, topKChunkUB; // result
             
-            int64_t qHash_base = 0;
-            int64_t qHashGroup_base = 0;
-            // int64_t kHash_base = qHash_base + param_.qHashTilingSize;
-            int64_t kHash_base = qHash_base;
-            int64_t index_base = 0;
+            // 此处设置的时候就需要考虑 multi buffer
+            // VECIN
+            SetTensorAddr<hashDataType>(qHashUB, param_.qHashTilingSize, qHashBaseUB, 9);
+            SetTensorAddr<hashDataType>(kHashUB, param_.kHashTilingSize, kHashBaseUB, 9);
+            // VECALC
+            SetTensorAddr<hashDataType>(XORUB, param_.hammingGroupTilingSize, XORBaseUB, 11);
+            SetTensorAddr<hashDataType>(rightShiftUB, param_.hammingGroupTilingSize, rightShiftBaseUB, 11);
+            SetTensorAddr<hashDataType>(hammingGroupUB, param_.hammingGroupTilingSize, hammingGroupBaseUB, 11);
+            SetTensorAddr<hashDataType>(hammingSumUB, param_.hammingSumTilingSize, hammingSumBaseUB, 11);
+            SetTensorAddr<hashDataType>(hammingChunkUB, param_.hammingChunkTilingSize, hammingChunkBaseUB, 11); 
+            // VECOUT
+            SetTensorAddr<hashDataType>(indexChunkUB, param_.indexChunkTilingSize, indexChunkBaseUB, 10);
+            SetTensorAddr<hashDataType>(topKChunkUB, param_.topKChunkTilingSize, topKChunkBaseUB, 10);
+            
+            // auto kHashOffset = loop_ping_flag ? kHashBaseUB + kHashSingleTilingSize : kHashBaseUB;
+            // VECIN
+            auto qHashUBOffset = loop_ping_flag ? qHashBaseUB + param_.qHashSingleTilingSize : qHashBaseUB;
+            auto kHashUBOffset = loop_ping_flag ? kHashBaseUB + param_.kHashSingleTilingSize : kHashBaseUB;
+            // VECALC
+            auto XORUBOffset = loop_ping_flag ? XORBaseUB + param_.hammingGroupSingleTilingSize : XORBaseUB;
+            auto rightShiftUB = loop_ping_flag ? rightShiftBaseUB + param_.hammingGroupSingleTilingSize : rightShiftBaseUB;
+            auto hammingGroupUBOffset = loop_ping_flag ? hammingGroupBaseUB + param_.hammingGroupSingleTilingSize : hammingGroupBaseUB;
+            auto hammingSumUBOffset = loop_ping_flag ? hammingSumBaseUB + param_.hammingSumSingleTilingSize : hammingSumBaseUB;
+            auto hammingChunkUBOffset = loop_ping_flag ? hammingChunkBaseUB + param_.hammingChunkSingleTilingSize : hammingChunkBaseUB;
+            // VECOUT
+            auto indexChunkUBOffset = loop_ping_flag ? indexChunkBaseUB + param_.indexChunkSingleTilingSize : indexChunkBaseUB;
+            auto topKChunkUBOffset = loop_ping_flag ? topKChunkUB + param_.topkChunkSingleTilingSize : topKChunkUB;
 
-            // 此处设置的时候就需要考虑double buffer
-            SetTensorAddr<hashDataType>(qHashUB, param_.qHashTilingSize, qHash_base, 9); 
-            SetTensorAddr<hashDataType>(HammingUB, XXX, qHash_base, 11); 
-            SetTensorAddr<hashDataType>(hammingChunkUB, XXX, qHash_base, 11); 
-            SetTensorAddr<hashDataType>(qHashGroupUB, param_.qHashGroupSize, qHashGroup_base, 11);
-            SetTensorAddr<hashDataType>(indexChunkUB, param_.indexSize, index_base, 10);
-
-            auto qHashOffset = loop_ping_flag ? qHash_base + qHashSingleTilingSize : qHash_base;
-            auto qHashGroupOffset = loop_ping_flag ? qHashGroup_base + qHashGroupSingleSize : qHashGroup_base;
-            auto indexOffset = loop_ping_flag ? index_base + indexSingleSize : index_base;
-
-            // 先计算完全部的HDim
+            // 先计算Hamming dist
             for (uint32_t hDimTiling = 0; hDimTiling < hDimTilingNum; hDimTiling += 1){
                 // 计算tile大小
                 auto curHDim = hDimTiling == hDimTilingNum - 1 ? param_.hDimTilingTailLen : param_.hDimTilingLen;
@@ -261,19 +286,19 @@ public:
                 QHashGroup(qHashGroupUB, qHashUB, param_.groupNum, curHDim, false, hDimTiling); // cumsum
             }
 
-            // 一次性算完全部qHash的group之后，保存group，此时可以复用qHash的内存空间
-            qHashUB.Free();
-            SetTensorAddr<hashDataType>(kHashUB, param_.kHashTilingSize, kHash_base, 9);
-            auto kHashOffset = loop_ping_flag ? kHash_base + kHashSingleTilingSize : kHash_base;
+            // // 一次性算完全部qHash的group之后，保存group，此时可以复用qHash的内存空间
+            // qHashUB.Free();
+            // SetTensorAddr<hashDataType>(kHashUB, param_.kHashTilingSize, kHashBaseUB, 9);
+            // auto kHashOffset = loop_ping_flag ? kHashBaseUB + kHashSingleTilingSize : kHashBaseUB;
 
             // 再计算汉明距离
             for (uint32_t seqLenTiling = 0; seqLenTiling < seqLenTilingNum; seqLenTiling += 1){
                 // 计算tile大小
                 auto curSeqLen = seqLenTiling == seqLenTilingNum - 1 ? param_.seqLenTilingTailLen : param_.seqLenTilingLen;
 
-                Hamming(hammingUB, qHashGroupUB, kHash, curSeqLen, seqLenTiling); // [1, T_S]
+                Hamming(hammingSumUB, qHashGroupUB, kHash, curSeqLen, seqLenTiling); // [1, T_S]
                 
-                ChunkCompress(hammingChunkUB, hammingUB, param_.chunkSize, param_.chunkMode); // [1, chunkNum]
+                ChunkCompress(hammingChunkUB, hammingSumUB, param_.chunkSize, param_.chunkMode); // [1, chunkNum]
 
                 GenerateIndex(); // ArithProgression
                 TopKCustom(); // [1, compressTopK]

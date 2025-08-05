@@ -22,7 +22,7 @@ struct HammingTilingData {
     uint32_t groupNum; // headQ / headK
     uint32_t chunkSize; // topk compress block -- 这里会有非整数问题
     uint32_t chunkNum; // ceil(SeqLen/chunkSize) 
-    uint32_t compressTopK; // need add assert TopK/chunkSize 
+    uint32_t chunkTopKNum; // need add assert TopK/chunkSize 
     
     // Core Offset
     uint32_t qHashCoreOffset;
@@ -41,15 +41,23 @@ struct HammingTilingData {
     
     // Size info -- elements, not byte
     uint32_t bufferNum;
-    uint32_t qHashTilingSize; // contain buffer num
-    uint32_t qHashSingleTilingSize; // contain buffer num    
-    uint32_t kHashTilingSize;
-    uint32_t kHashSingleTilingSize;
-    // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
-    uint32_t qHashGroupSize;  // contain buffer num  
-    uint32_t qHashGroupSingleSize;
-    uint32_t indexSize;  // contain buffer num  
-    uint32_t indexSingleSize;
+    uint32_t qHashTilingSize; // contain buffer num -- 一次性读完全部的，HDim切块为1 -- G*bfn*HDim
+    uint32_t qHashSingleTilingSize; // G*HDim
+    uint32_t kHashTilingSize; // contain buffer num -- T_SeqLen * HDim * bfn
+    uint32_t kHashSingleTilingSize; // T_SeqLen * HDim
+    // // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
+    // uint32_t qHashGroupSize;  // contain buffer num  
+    // uint32_t qHashGroupSingleSize;
+    uint32_t indexChunkTilingSize;  // contain buffer num  
+    uint32_t indexChunkSingleTilingSize;
+    uint32_t hammingGroupTilingSize; // contain buffer num and tiling -- G * T_SeqLen * bfn
+    uint32_t hammingGroupSingleTilingSize; // G * T_SeqLen    
+    uint32_t hammingSumTilingSize; // contain buffer num and tiling -- T_SeqLen * bfn
+    uint32_t hammingSumSingleTilingSize; // T_SeqLen
+    uint32_t hammingChunkTilingSize; // ChunkNum * bfn
+    uint32_t hammingChunkSingleTilingSize; // ChunkNum
+    uint32_t topKChunkTilingSize; // chunkTopKNum * bfn
+    uint32_t topkChunkSingleTilingSize; // chunkTopKNum
 
 };
 #endif
