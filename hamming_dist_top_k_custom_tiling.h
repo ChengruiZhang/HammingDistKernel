@@ -20,16 +20,25 @@ struct HammingTilingData {
     uint32_t hidDimCompress; // bool -- int16/int8
     uint32_t totalNum; // totalNum = batchSize * seqLen
     uint32_t groupNum; // headQ / headK
+    
     uint32_t chunkSize; // topk compress block -- 这里会有非整数问题
-    uint32_t chunkNum; // ceil(SeqLen/chunkSize) 
+    uint32_t chunkDataSize; // chunkSize * DATABLOCKLEN 
+    uint32_t chunkNum; // ceil(SeqLen / chunkSize) 
+    uint32_t chunkTail; // SeqLen % chunkSize 
+    uint32_t chunkMode;  // max
     uint32_t chunkTopKNum; // need add assert TopK/chunkSize 
     
-    // Core Offset
+    uint32_t scalarSize; // hamming Scalar -- 
+
+    // Core Offset -- per core
     uint32_t qHashCoreOffset;
     uint32_t kHashCoreOffset;
     uint32_t indexCoreOffset;
+    uint32_t qHashCoreOffsetBlock; // 32 Byte = 1 block
+    uint32_t kHashCoreOffsetBlock;
+    uint32_t indexCoreOffsetBlock;
 
-    // tiling info
+    // tiling info -- elements
     uint32_t seqLenTilingLen;
     uint32_t seqLenTilingNum;
     uint32_t seqLenTilingTailLen;
@@ -45,18 +54,34 @@ struct HammingTilingData {
     uint32_t qHashSingleTilingSize; // G*HDim
     uint32_t kHashTilingSize; // contain buffer num -- T_SeqLen * HDim * bfn
     uint32_t kHashSingleTilingSize; // T_SeqLen * HDim
-    // // 注意，这里的qHashGroup为整个hidden Dim的Size，不是分块之后的
-    // uint32_t qHashGroupSize;  // contain buffer num  
-    // uint32_t qHashGroupSingleSize;
-    uint32_t indexChunkTilingSize;  // contain buffer num  
+    uint32_t indexChunkTilingSize;  // contain buffer num -- chunkNum * DATABLOCKLEN * bfn
     uint32_t indexChunkSingleTilingSize;
-    uint32_t hammingGroupTilingSize; // contain buffer num and tiling -- G * T_SeqLen * bfn
-    uint32_t hammingGroupSingleTilingSize; // G * T_SeqLen    
-    uint32_t hammingSumTilingSize; // contain buffer num and tiling -- T_SeqLen * bfn
-    uint32_t hammingSumSingleTilingSize; // T_SeqLen
-    uint32_t hammingChunkTilingSize; // ChunkNum * bfn
-    uint32_t hammingChunkSingleTilingSize; // ChunkNum
-    uint32_t topKChunkTilingSize; // chunkTopKNum * bfn
+    
+    
+    // hamming -- 2个临时空间足矣
+    //     unsigned int popcount16(unsigned int x) {
+    //     x = x - ((x >> 1) & 0x5555);               // 每2位
+    //     x = (x & 0x3333) + ((x >> 2) & 0x3333);    // 每4位
+    //     x = (x + (x >> 4)) & 0x0F0F;               // 每8位
+    //     x = (x + (x >> 8)) & 0x001F;               // 合并到16位
+    //     return x;
+    // }
+
+    // XOR rightshift 这些都是对T_SeqLen中的一个做的
+    uint32_t hammingXORTilingSize; // contain buffer num and tiling -- G * HDim * bfn
+    uint32_t hammingXORSingleTilingSize; // G * HDim
+    uint32_t hammingRightTilingSize; // contain buffer num and tiling -- G * HDim * bfn
+    uint32_t hammingRightSingleTilingSize; // G * HDim
+    uint32_t hammingReduceTilingSize; // G * 16 (DATABLOCKLEN, 按0扩充至32 Byte) * bfn 
+    uint32_t hammingReduceSingleTilingSize; // G * 16 (DATABLOCKLEN) 
+
+    // uint32_t hammingGroupTilingSize; // contain buffer num and tiling -- G * T_SeqLen * bfn
+    // uint32_t hammingGroupSingleTilingSize; // G * T_SeqLen    
+    uint32_t hammingSumTilingSize; // contain buffer num and tiling -- T_SeqLen * DATABLOCKLEN * bfn
+    uint32_t hammingSumSingleTilingSize; // T_SeqLen * DATABLOCKLEN
+    uint32_t hammingChunkTilingSize; // ChunkNum * DATABLOCKLEN * bfn
+    uint32_t hammingChunkSingleTilingSize; // ChunkNum * DATABLOCKLEN
+    uint32_t topKChunkTilingSize; // chunkTopKNum * DATABLOCKLEN * bfn
     uint32_t topkChunkSingleTilingSize; // chunkTopKNum
 
 };

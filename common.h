@@ -11,3 +11,6 @@ const int CUBE_NUM = 20;
 const int UB_SIZE = 256; // KB
 
 const int COMPRESS_NUM = 16;  // 16 bits for int16_t --> 1 int16_t represents 16 bools
+
+typedef uint16_t ALC_type;
+const int DATABLOCKLEN = 32 / sizeof(ALC_type);
