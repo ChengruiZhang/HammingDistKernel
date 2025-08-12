@@ -2,34 +2,34 @@
 	"sources" : 
 	[
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_preprocess"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_preprocess"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_preprocess.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_preprocess.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/CMakeFiles/ascendc_kernels_npu_preprocess-complete.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_preprocess-complete.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-build.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-build.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-configure.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-configure.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-download.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-download.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-install.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-install.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-mkdir.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-mkdir.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-patch.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-patch.rule"
 		},
 		{
-			"file" : "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-update.rule"
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-stamp/ascendc_kernels_npu_preprocess-update.rule"
 		}
 	],
 	"target" : 

@@ -1,3 +1,4 @@
+#pragma once
 #include <cstdint>
 
 typedef uint16_t GM_qHash_type;  // qhash
@@ -14,3 +15,5 @@ const int COMPRESS_NUM = 16;  // 16 bits for int16_t --> 1 int16_t represents 16
 
 typedef uint16_t ALC_type;
 const int DATABLOCKLEN = 32 / sizeof(ALC_type);
+
+const int MAX_REPEAT_TIMES = 255;

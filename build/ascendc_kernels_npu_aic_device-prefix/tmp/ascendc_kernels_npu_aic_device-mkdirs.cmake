@@ -3,20 +3,25 @@
 
 cmake_minimum_required(VERSION 3.5)
 
+# If CMAKE_DISABLE_SOURCE_CHANGES is set to true and the source directory is an
+# existing directory in our source tree, calling file(MAKE_DIRECTORY) on it
+# would cause a fatal error, even though it would be a no-op.
+if(NOT EXISTS "/usr/local/Ascend/ascend-toolkit/latest/compiler/tikcpp/ascendc_kernel_cmake/device_project")
+  file(MAKE_DIRECTORY "/usr/local/Ascend/ascend-toolkit/latest/compiler/tikcpp/ascendc_kernel_cmake/device_project")
+endif()
 file(MAKE_DIRECTORY
-  "/usr/local/Ascend/ascend-toolkit/latest/compiler/tikcpp/ascendc_kernel_cmake/device_project"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-build"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/tmp"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src"
-  "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-build"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/tmp"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src"
+  "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp"
 )
 
 set(configSubDirs )
 foreach(subDir IN LISTS configSubDirs)
-    file(MAKE_DIRECTORY "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/${subDir}")
+    file(MAKE_DIRECTORY "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp/${subDir}")
 endforeach()
 if(cfgdir)
-  file(MAKE_DIRECTORY "/data/home/2301111796/HammingDistTiling/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp${cfgdir}") # cfgdir has leading slash
+  file(MAKE_DIRECTORY "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_aic_device-prefix/src/ascendc_kernels_npu_aic_device-stamp${cfgdir}") # cfgdir has leading slash
 endif()

@@ -16,7 +16,8 @@ struct HammingTilingData {
     // basic info
     uint32_t batchSize;
     uint32_t seqLen;
-    uint32_t seqLenPad; // pad to 32 Bytes
+    uint32_t seqLenPad; // pad elements to 32 Bytes
+    uint32_t seqBlock; // ceil(seqLenPad / 16) -- 每个datablock有16个元素
     uint32_t reduceSumWorkSpace = 512; // reduceSum的工作空间，32 Byte对齐
 
     uint32_t hidDim;
@@ -28,13 +29,14 @@ struct HammingTilingData {
     uint32_t groupNum; // headQ / headK
     
     uint32_t chunkSize; // topk compress block -- 这里会有非整数问题
-    uint32_t chunkDataSize; // chunkSize * DATABLOCKLEN 
-    uint32_t chunkNum; // ceil(SeqLen / chunkSize) 
-    uint32_t chunkTail; // SeqLen % chunkSize 
+    uint32_t chunkRepeat; // ceil(seqBlock / 8)
+    uint32_t chunkTailMask; // (seqLen % (8 * 16)) -- 可能为0
+    uint32_t chunkNum; // ceil(SeqLen / chunkSize)  -- 似乎无用
+    uint32_t chunkTail; // SeqLen % chunkSize  -- 似乎无用
     uint32_t chunkMode;  // max
-    uint32_t chunkTopKNum; // need add assert TopK/chunkSize 
-    
-    uint32_t scalarSize; // hamming Scalar -- 
+    uint32_t chunkTopKNum; // need add assert TopK/chunkSize
+
+    uint32_t scalarSize; // hamming Scalar -- 4 * 64 = 256 bits = 64 bytes = 32 elements
 
     // Core Offset -- per core
     uint32_t qHashCoreOffset; // G * hidDimCompressPadNum * sizeof(hashDataType)
@@ -58,12 +60,10 @@ struct HammingTilingData {
     
     // Size info -- elements, not byte
     uint32_t bufferNum;
-    uint32_t qHashTilingSize; // contain buffer num -- 一次性读完全部的，HDim切块为1 -- G*bfn*HDimPad
-    uint32_t qHashSingleTilingSize; // G*HDimPad
-    uint32_t kHashTilingSize; // contain buffer num -- T_SeqLenPad * HDimPad * bfn
-    uint32_t kHashSingleTilingSize; // T_SeqLenPad * HDimPad
-    uint32_t indexChunkTilingSize;  // contain buffer num -- chunkNum * DATABLOCKLEN * bfn
-    uint32_t indexChunkSingleTilingSize;
+    uint32_t qHashTilingSize; // contain buffer num -- 一次性读完全部的，HDim切块为1 -- G*bfn*hidDimCompressPadNum
+    uint32_t qHashSingleTilingSize; // G*hidDimCompressPadNum
+    uint32_t kHashTilingSize; // contain buffer num -- T_SeqLenPad * hidDimCompressPadNum * bfn
+    uint32_t kHashSingleTilingSize; // T_SeqLenPad * hidDimCompressPadNum
     
     
     // hamming -- 2个临时空间足矣
@@ -76,22 +76,23 @@ struct HammingTilingData {
     // }
 
     // XOR rightshift 这些都是对T_SeqLen中的一个做的
-    uint32_t hammingXORTilingSize; // contain buffer num and tiling -- G * HDimPad * bfn
-    uint32_t hammingXORSingleTilingSize; // G * HDimPad
-    uint32_t hammingRightTilingSize; // contain buffer num and tiling -- G * HDimPad * bfn
-    uint32_t hammingRightSingleTilingSize; // G * HDimPad
-    uint32_t hammingReduceTilingSize; // G * 16 (DATABLOCKLEN, 按0扩充至32 Byte) * bfn 
-    uint32_t hammingReduceSingleTilingSize; // G * 16 (DATABLOCKLEN) 
-    // uint32_t hammingGroupTilingSize; // contain buffer num and tiling -- G * T_SeqLenPad * bfn
-    // uint32_t hammingGroupSingleTilingSize; // G * T_SeqLenPad    
+    uint32_t hammingXORTilingSize; // contain buffer num and tiling -- G * hidDimCompressPadNum * bfn
+    uint32_t hammingXORSingleTilingSize; // G * hidDimCompressPadNum
+    uint32_t hammingRightTilingSize; // G * hidDimCompressPadNum * bfn
+    uint32_t hammingRightSingleTilingSize; // G * hidDimCompressPadNum
     uint32_t hammingSumTilingSize; // contain buffer num and tiling -- T_SeqLenPad * DATABLOCKLEN * bfn
     uint32_t hammingSumSingleTilingSize; // T_SeqLenPad * DATABLOCKLEN
+    uint32_t hammingReduceTilingSize; // G * 16 (DATABLOCKLEN, 按0扩充至32 Byte) * bfn 
+    uint32_t hammingReduceSingleTilingSize; // G * 16 (DATABLOCKLEN) 
     uint32_t hammingResultTilingSize; // contain buffer num and tiling -- T_SeqLenPad * bfn
     uint32_t hammingResultSingleTilingSize; // T_SeqLenPad
-    uint32_t hammingChunkTilingSize; // T_SeqLenPad * bfn
-    uint32_t hammingChunkSingleTilingSize; // T_SeqLenPad
-    uint32_t topKChunkTilingSize; // T_SeqLenPad * bfn
-    uint32_t topKChunkSingleTilingSize; // T_SeqLenPad
+    uint32_t hammingChunkTilingSize; // T_SeqLenPad / 16 * bfn -- block reduce 能够做维度缩减
+    uint32_t hammingChunkSingleTilingSize; // T_SeqLenPad / 16
+    
+    uint32_t indexChunkTilingSize;  //  ((seqLenPad + 128 - 1) / 128 * 8 + 16 - 1) * 16 * bfn
+    uint32_t indexChunkSingleTilingSize;
+    uint32_t topKChunkTilingSize; // (k + 16 - 1) * 16 * bfn
+    uint32_t topKChunkSingleTilingSize; // (k + 16 - 1) * 16
 
 };
 #endif
