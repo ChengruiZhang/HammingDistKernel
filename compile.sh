@@ -61,17 +61,18 @@ if [[ " $VERSION_LIST " != *" $SOC_VERSION "* ]]; then
     exit -1
 fi
 
-if [ -n "$ASCEND_INSTALL_PATH" ]; then
-    _ASCEND_INSTALL_PATH=$ASCEND_INSTALL_PATH
-elif [ -n "$ASCEND_HOME_PATH" ]; then
-    _ASCEND_INSTALL_PATH=$ASCEND_HOME_PATH
-else
-    if [ -d "$HOME/Ascend/ascend-toolkit/latest" ]; then
-        _ASCEND_INSTALL_PATH=$HOME/Ascend/ascend-toolkit/latest
-    else
-        _ASCEND_INSTALL_PATH=/usr/local/Ascend/ascend-toolkit/latest
-    fi
-fi
+# if [ -n "$ASCEND_INSTALL_PATH" ]; then
+#     _ASCEND_INSTALL_PATH=$ASCEND_INSTALL_PATH
+# elif [ -n "$ASCEND_HOME_PATH" ]; then
+#     _ASCEND_INSTALL_PATH=$ASCEND_HOME_PATH
+# else
+#     if [ -d "$HOME/Ascend/ascend-toolkit/latest" ]; then
+#         _ASCEND_INSTALL_PATH=$HOME/Ascend/ascend-toolkit/latest
+#     else
+#         _ASCEND_INSTALL_PATH=/usr/local/Ascend/ascend-toolkit/latest
+#     fi
+# fi
+_ASCEND_INSTALL_PATH=/home/westhpc/Ascend/ascend-toolkit/latest
 
 export ASCEND_TOOLKIT_HOME=${_ASCEND_INSTALL_PATH}
 export ASCEND_HOME_PATH=${_ASCEND_INSTALL_PATH}

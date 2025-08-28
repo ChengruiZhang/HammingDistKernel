@@ -20,13 +20,6 @@ extern "C" __global__ __aicore__ void hamming_dist_top_k_custom(GM_ADDR x, GM_AD
 #endif
 extern void GenerateTilingData(uint8_t* tilingBuf, uint32_t blockDim);
 
-const double PEAK_CUBE_FLOPS = 294.912;
-const double PEAK_VEC_FLOPS = 9.216;
-
-typedef GM_QHASH_TYPE uint16_t;
-typedef GM_KHASH_TYPE uint16_t;
-typedef GM_IDX_TYPE uint32_t;
-
 /*
 @brief Main function for Hamming distance top-k custom kernel with tiling support.
 @param qhash: [B, 1, Hq, D], bool --> [B, 1, Hq, D], uint16_t -- 重要：为了保证右移计算的正确性，所有数据将会转化为uint16_t类型，可以按照其他类型输入，但会转化成uint16
@@ -46,19 +39,19 @@ int32_t main(int32_t argc, char *argv[])
     headK = std::stoi(argv[4]);
     hidDim = std::stoi(argv[5]);
     topK = std::stoi(argv[6]);
-    chunkSize = std::stoi(argv[7])
+    chunkSize = std::stoi(argv[7]);
     int32_t deviceId = std::stoi(argv[8]);
 
     fprintf(stderr, "Operator Input Params: batchSize=%d, seqLen=%d, headQ=%d, headK=%d, hidDim=%d, topK=%d, chunkSize=%d\n", 
             batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize);
 
     assert(headQ % headK == 0 && "headQ must be divisible by headK");
-    assert(hidDim % sizeof(GM_QHASH_TYPE) == 0 && "hidDim must be divisible by 16");
+    assert(hidDim % sizeof(GM_qHash_type) == 0 && "hidDim must be divisible by 16");
 
-    size_t qHashFileSize = batchSize * 1 * headQ * hidDim / sizeof(GM_QHASH_TYPE) * sizeof(GM_QHASH_TYPE); // uint16_t represent 16 bool
-    size_t kHashFileSize = batchSize * seqLen * headK * hidDim / sizeof(GM_KHASH_TYPE) * sizeof(GM_KHASH_TYPE);
+    size_t qHashFileSize = batchSize * 1 * headQ * hidDim / sizeof(GM_qHash_type) * sizeof(GM_qHash_type); // uint16_t represent 16 bool
+    size_t kHashFileSize = batchSize * seqLen * headK * hidDim / sizeof(GM_kHash_type) * sizeof(GM_kHash_type);
     auto compressedTopK = (topK + chunkSize - 1) / chunkSize;
-    size_t indexFileSize = batchSize * headK * compressedTopK * sizeof(GM_IDX_TYPE);
+    size_t indexFileSize = batchSize * headK * compressedTopK * sizeof(GM_idx_type);
 
     // 待定
     constexpr uint32_t BLOCK_DIM = VEC_NUM;

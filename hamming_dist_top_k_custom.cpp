@@ -15,7 +15,7 @@ constexpr int32_t UB_SIZE = 256; // 256 KB
 
 using namespace AscendC;
 
-template <typename hashDataType> 
+template <typename hashDataType, typename computeDataType, typename indexDataType> 
 class KernelHammingDistTopK {
 public:
     __aicore__ inline KernelHammingDistTopK() {}
@@ -109,7 +109,7 @@ public:
     /* @brief: 搬入数据
     * Dst tensor, Src tensor
     */
-    template <typename T = uint16_t>
+    template <typename T = int16_t>
     __aicore__ inline void DataCopyInCustom(const LocalTensor<T>& dst, const GlobalTensor<T>& src, 
                                      int64_t blockLen, int64_t blockCount,
                                      int64_t rightPadding = 0, int64_t paddingValue = 0,
@@ -132,7 +132,7 @@ public:
     /* @brief: 搬出数据
     * Dst tensor, Src tensor
     */
-    template <typename T = uint16_t>
+    template <typename T = half>
     __aicore__ inline void DataCopyOutCustom(const GlobalTensor<T>& dst, const LocalTensor<T>& src, 
                                     //  int64_t dstOffset, int64_t srcOffset, 
                                      int64_t blockLen, int64_t blockCount,
@@ -162,9 +162,9 @@ public:
         // 扩充
     }
 
-    template <typename T = uint16_t>
-    __aicore__ inline void XORCustom(const LocalTensor<T>& dst, 
-                               const LocalTensor<T>& qHash, const LocalTensor<T>& kHash, 
+    // template <typename T = int16_t>
+    __aicore__ inline void XORCustom(const LocalTensor<hashDataType>& dst, 
+                               const LocalTensor<hashDataType>& qHash, const LocalTensor<hashDataType>& kHash, 
                                uint32_t group, uint32_t seqLen){
         for (uint32_t i = 0; i < group; i++){
             Xor(dst[i * param_.hidDimCompressPadNum], qHash[i * param_.hidDimCompressPadNum], kHash[seqLen * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
@@ -181,12 +181,12 @@ public:
     *        qHash [Group, HDim], SeqLen, curTile
     * 这里有一个在SeqLen上的内循环，以支持
     */
-    template <typename T = uint16_t>
-    __aicore__ inline void Hamming(const LocalTensor<T>& hammingResult, 
-                                   const LocalTensor<T>& qHash, const LocalTensor<T>& kHash, 
-                                   const LocalTensor<T>& XOR, const LocalTensor<T>& rightShift,
-                                   const LocalTensor<T>& hammingReduce, const LocalTensor<T>& hammingSum,
-                                   const LocalTensor<T>& scalar, const LocalTensor<T>& reduceSumWorkSpace,
+    // template <typename T = int16_t>
+    __aicore__ inline void Hamming(const LocalTensor<computeDataType>& hammingResult, 
+                                   const LocalTensor<hashDataType>& qHash, const LocalTensor<hashDataType>& kHash, 
+                                   const LocalTensor<hashDataType>& XOR, const LocalTensor<hashDataType>& rightShift,
+                                   const LocalTensor<computeDataType>& hammingReduce, const LocalTensor<computeDataType>& hammingSum,
+                                   const LocalTensor<hashDataType>& scalar, const LocalTensor<computeDataType>& reduceSumWorkSpace,
                                    uint32_t group, uint32_t HDim, uint32_t seqLen, uint32_t curTile){
         
 
@@ -207,7 +207,7 @@ public:
             PipeBarrier<PIPE_V>();
 
             // x = x - ((x >> 1) & 0x5555555555555555ULL);              // 每2位计数
-            ShiftRight(rightShift, XOR, (T)1, group * 16); // rightShift = x >> 1, 只有group个参与,*16是因为有16个元素组成一个datablock
+            ShiftRight(rightShift, XOR, (hashDataType)1, group * 16); // rightShift = x >> 1, 只有group个参与,*16是因为有16个元素组成一个datablock
             PipeBarrier<PIPE_V>();
             And(rightShift, rightShift, scalar[0], group * 16); // scalar[0-8] = 0x5555555555555555ULL 
             PipeBarrier<PIPE_V>();
@@ -215,7 +215,7 @@ public:
             PipeBarrier<PIPE_V>();
             
             // x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL); // 每4位计数
-            ShiftRight(rightShift, XOR, (T)2, group * 16);
+            ShiftRight(rightShift, XOR, (hashDataType)2, group * 16);
             PipeBarrier<PIPE_V>();
             And(rightShift, rightShift, scalar[16], group * 16); // scalar[16-24] = 0x3333333333333333ULL
             PipeBarrier<PIPE_V>();
@@ -225,7 +225,7 @@ public:
             PipeBarrier<PIPE_V>();
 
             // x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;               // 每8位计数
-            ShiftRight(rightShift, XOR, (T)4, group * 16);
+            ShiftRight(rightShift, XOR, (hashDataType)4, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
@@ -233,19 +233,19 @@ public:
             PipeBarrier<PIPE_V>();
 
             // x = x + (x >> 8);                                        // 每16位
-            ShiftRight(rightShift, XOR, (T)8, group * 16);
+            ShiftRight(rightShift, XOR, (hashDataType)8, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
 
             // x = x + (x >> 16);                                       // 每32位
-            ShiftRight(rightShift, XOR, (T)16, group * 16);
+            ShiftRight(rightShift, XOR, (hashDataType)16, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
 
             // x = x + (x >> 32);                                       // 每64位
-            ShiftRight(rightShift, XOR, (T)32, group * 16); // 32是因为每个datablock有16个元素，每个元素是64位
+            ShiftRight(rightShift, XOR, (hashDataType)32, group * 16); // 32是因为每个datablock有16个元素，每个元素是64位
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
@@ -254,9 +254,9 @@ public:
             And(XOR, XOR, scalar[48], group * 16);       // scalar[48-56] = 0x000000000000007F
             PipeBarrier<PIPE_V>();
 
-            // 计算完一个SeqLen的Hamming，接下来进行CumSum
-            CumSum<hashDataType, cumSumConfig>(XOR, hammingSum[i * 16], XOR, cumSumInfo);      // hammingSum [T_S, 16] -- 16是DATABLOCKLEN
-            PipeBarrier<PIPE_V>();
+            // 计算完一个SeqLen的Hamming，接下来进行CumSum -- TBD 这里目前是错误的写法 -- 需要更新CANN版本
+            // CumSum<hashDataType, cumSumConfig>(XOR, hammingSum, XOR, cumSumInfo);      // hammingSum [T_S, 16] -- 16是DATABLOCKLEN
+            // PipeBarrier<PIPE_V>();
 
         }
 
@@ -283,8 +283,8 @@ public:
 
     }
 
-    template <typename T = uint16_t>
-    __aicore__ inline void ReduceMaxCustom(const LocalTensor<T> &outTensor, const LocalTensor<T> &inTensor, 
+    // template <typename T = uint16_t>
+    __aicore__ inline void ReduceMaxCustom(const LocalTensor<computeDataType> &outTensor, const LocalTensor<computeDataType> &inTensor, 
                                             const uint8_t chunkSize){
 
         int32_t totalRepeat = param_.chunkRepeat; /* 8: BlockReduceMax一次并行计算8个dataBlock */
@@ -301,19 +301,15 @@ public:
             uint32_t srcOffset = 0;
             uint32_t dstOffset = 0;
             for (int32_t i = 0; i < loopNum - 1; i++) {
-                BlockReduceMax<T>(outTensor[dstOffset], inTensor[srcOffset], repeat, mask, 1, 1, 8); // 8: srcRepStride
+                BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], repeat, mask, 1, 1, 8); // 8: srcRepStride
                 srcOffset += repeat * 8 * 16; /* 8: BlockReduceMax一次并行计算8个dataBlock, 16: 每个dataBlock有32Bytes，包含16个half的值*/
                 dstOffset += repeat * 8; /* 8: BlockReduceMax一次并行计算8个dataBlock, 输出8个点 */
             }
-            BlockReduceMax<T>(outTensor[dstOffset], inTensor[srcOffset], tailRepeat - 1, mask, 1, 1, 8); // 8: srcRepStride
+            BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], tailRepeat - 1, mask, 1, 1, 8); // 8: srcRepStride
             srcOffset += (tailRepeat - 1) * 8 * 16; 
             dstOffset += (tailRepeat - 1) * 8; 
-            BlockReduceMax<T>(outTensor[dstOffset], inTensor[srcOffset], 1, param_.chunkTailMask, 1, 1, 8); // 8: srcRepStride
+            BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], 1, param_.chunkTailMask, 1, 1, 8); // 8: srcRepStride
         }
-        //  else if (chunkSize == 8) { /* chunkSize 只支持1 8 16*/
-        //     mask[0] = 0x00ff00ff00ff00ff;
-        //     mask[1] = 0x00ff00ff00ff00ff;
-        // }
 
 }
 
@@ -321,8 +317,8 @@ public:
     * output: outTensor
     * input: inTensor; ChunkSize, chunkNum, chunkTail, ChunkMode
     */
-    template <typename T = uint16_t>
-    __aicore__ inline void ChunkCompress(const LocalTensor<T>& outTensor, const LocalTensor<T>& inTensor, uint32_t chunkSize,
+    // template <typename T = uint16_t>
+    __aicore__ inline void ChunkCompress(const LocalTensor<computeDataType>& outTensor, const LocalTensor<computeDataType>& inTensor, uint32_t chunkSize,
                                          uint32_t chunkMode){
         if (chunkMode == 0) { // BlockMax
             ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
@@ -357,16 +353,13 @@ public:
         tensor.SetAddr(TBuffAddr_);
     }
 
-
-    __aicore__ inline void GenerateIndex(const LocalTensor<T>& tensor, uint32_t start, uint32_t end, uint32_t step){
-        // 生成一个从start到end的index
-        for (uint32_t i = start; i < end; i += step){
-            tensor.SetValue(i / step, i);
-        }
+    // template <typename T = int16_t>
+    __aicore__ inline void GenerateIndex(const LocalTensor<indexDataType>& tensor, int16_t start, int16_t step, uint32_t count){
+        ArithProgression<indexDataType>(tensor, static_cast<indexDataType>(start), static_cast<indexDataType>(step), count);
 
     }
     // 此处不确定能否对tensor cast
-    template <typename T = uint16_t>
+    template <typename T = int16_t>
     __aicore__ inline void SetScalarValue(LocalTensor<T>& tensor){
         // 0x5555555555555555
         for (uint32_t i = 0; i < 4; i++){ tensor.SetValue(i, uint16_t(0x5555)); }
@@ -404,12 +397,11 @@ public:
         int64_t indexChunkBaseUB = 0;
         int64_t topKChunkBaseUB = indexChunkBaseUB + param_.indexChunkTilingSize;
 
-        LocalTensor<uint16_t> qHashUB, kHashUB, // input
-                             scalarUB, reduceSumWorkSpaceUB, // scalar
-                             XORUB, hammingRightUB, // hamming intermediate
-                             hammingReduceUB, hammingSumUB, hammingResultUB, hammingChunkUB, // hamming result 
-                             indexChunkUB, topKChunkUB; // result
-        
+        LocalTensor<hashDataType> qHashUB, kHashUB, // input
+                             scalarUB, // scalar
+                             XORUB, hammingRightUB; // hamming result 
+        LocalTensor<indexDataType> indexChunkUB;
+        LocalTensor<computeDataType> hammingReduceUB, hammingSumUB, hammingResultUB, hammingChunkUB, reduceSumWorkSpaceUB, topKChunkUB; // result
 
         // 此处设置的时候就需要考虑 multi buffer
         // VECIN
@@ -420,16 +412,16 @@ public:
         // VECALC
         SetTensorAddr<hashDataType>(XORUB, param_.hammingXORTilingSize, XORBaseUB, 11);
         SetTensorAddr<hashDataType>(hammingRightUB, param_.hammingRightTilingSize, rightShiftBaseUB, 11);
-        SetTensorAddr<hashDataType>(hammingSumUB, param_.hammingSumTilingSize, hammingSumBaseUB, 11);
-        SetTensorAddr<hashDataType>(hammingReduceUB, param_.hammingReduceTilingSize, hammingReduceBaseUB, 11);
-        SetTensorAddr<hashDataType>(hammingResultUB, param_.hammingResultTilingSize, hammingResultBaseUB, 11);
-        SetTensorAddr<hashDataType>(hammingChunkUB, param_.hammingChunkTilingSize, hammingChunkBaseUB, 11); 
-        SetTensorAddr<hashDataType>(reduceSumWorkSpaceUB, param_.reduceSumWorkSpace, reduceSumWorkSpaceBaseUB, 11); 
+        SetTensorAddr<computeDataType>(hammingSumUB, param_.hammingSumTilingSize, hammingSumBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingReduceUB, param_.hammingReduceTilingSize, hammingReduceBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingResultUB, param_.hammingResultTilingSize, hammingResultBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingChunkUB, param_.hammingChunkTilingSize, hammingChunkBaseUB, 11); 
+        SetTensorAddr<computeDataType>(reduceSumWorkSpaceUB, param_.reduceSumWorkSpace, reduceSumWorkSpaceBaseUB, 11); 
         // VECOUT
-        SetTensorAddr<hashDataType>(indexChunkUB, param_.indexChunkTilingSize, indexChunkBaseUB, 10);
-        SetTensorAddr<hashDataType>(topKChunkUB, param_.topKChunkTilingSize, topKChunkBaseUB, 10);
+        SetTensorAddr<indexDataType>(indexChunkUB, param_.indexChunkTilingSize, indexChunkBaseUB, 10);
+        SetTensorAddr<computeDataType>(topKChunkUB, param_.topKChunkTilingSize, topKChunkBaseUB, 10);
         
-        GenerateIndex(indexChunkUB, 0, param_.chunkSize, param_.chunkNum); // ArithProgression or CreateVecIndex -- TBD
+        GenerateIndex(indexChunkUB, 0, 1, param_.seqBlock); // ArithProgression or CreateVecIndex -- TBD
         PipeBarrier<PIPE_V>();
         // GenerateScalar(scalarUB); // scalar for hamming dist
         SetScalarValue(scalarUB);
@@ -517,8 +509,7 @@ extern "C" __global__ __aicore__ void hamming_dist_top_k_custom(GM_ADDR qHash, G
     const int32_t bufferNum = tiling.bufferNum;
     assert(bufferNum <= 2);
 
-    KernelHammingDistTopK<uint16_t> op;
+    KernelHammingDistTopK<int16_t, half, int32_t> op;
     op.Init(qHash, kHash, index, tiling);
     op.Process();
-
 }
