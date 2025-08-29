@@ -15,7 +15,7 @@
 #endif
 
 #ifndef ONE_CORE_DUMP_SIZE
-#define ONE_CORE_DUMP_SIZE 1024 * 1
+#define ONE_CORE_DUMP_SIZE 1048576 * 1
 #endif
 
 extern "C" __global__ [aicore] void auto_gen_hamming_dist_top_k_custom_kernel(
@@ -30,6 +30,17 @@ __attribute__((cce_global)) uint8_t* qHash, __attribute__((cce_global)) uint8_t*
 #endif
 #endif
 
+#ifdef ASCENDC_DUMP
+    uint64_t __ascendc_tStamp = 0;
+    uint64_t __ascendc_version = 0;
+     __gm__ char* __ascendc_versionStr = nullptr;
+    GetCannVersion(__ascendc_versionStr, __ascendc_version, __ascendc_tStamp);
+    if (__ascendc_tStamp == 0) {
+        AscendC::printf("[WARNING]: CANN TimeStamp is invalid, CANN TimeStamp is %u\n", __ascendc_tStamp);
+    } else {
+        AscendC::printf("CANN Version: %s, TimeStamp: %u\n", (__gm__ const char*)(__ascendc_versionStr), __ascendc_tStamp);
+    }
+#endif
 #if defined(HAVE_WORKSPACE)
     GM_ADDR workspace_param;
     GM_ADDR workspace_usr;

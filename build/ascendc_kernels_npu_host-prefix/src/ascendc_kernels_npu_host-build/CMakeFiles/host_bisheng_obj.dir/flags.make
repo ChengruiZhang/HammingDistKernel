@@ -8,5 +8,5 @@ CXX_INCLUDES = -I/home/westhpc/Ascend/ascend-toolkit/latest/tools/tikcpp/tikcfw 
 
 CXX_FLAGS = -g -include /home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/include/ascendc_kernels_npu/aclrtlaunch_triple_chevrons_func.h -O3 -std=c++17 --cce-aicore-lang -include /home/westhpc/Ascend/ascend-toolkit/latest/tools/../include/version/cann_version.h -fPIC --cce-host-only -fcce-kernel-launch-custom
 
-# Custom defines: CMakeFiles/host_bisheng_obj.dir/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/hamming_dist_top_k_custom.cpp.o_DEFINES = ONE_CORE_DUMP_SIZE=1024
+# Custom defines: CMakeFiles/host_bisheng_obj.dir/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/hamming_dist_top_k_custom.cpp.o_DEFINES = ONE_CORE_DUMP_SIZE=1048576
 

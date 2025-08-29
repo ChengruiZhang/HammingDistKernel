@@ -36,8 +36,8 @@ struct ascend_kernels {
     uint32_t aiv_type;
     uint32_t aiv_len;
     uint32_t aiv_file_len;
-    uint8_t aiv_buf[156456];
-} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,156456,156456,{0}};
+    uint8_t aiv_buf[110592];
+} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,110592,110592,{0}};
 
 extern "C" {
 uint32_t RegisterAscendBinary(const char *fileBuf, size_t fileSize, uint32_t type, void **handle);
@@ -148,7 +148,10 @@ struct HammingTilingData {
     uint32_t seqLen;
     uint32_t seqLenPad;
     uint32_t seqBlock;
-    uint32_t reduceSumWorkSpace = 512;
+
+    uint32_t topK;
+    uint32_t topKCompressed;
+    uint32_t topKComprssedPad;
 
     uint32_t hidDim;
     uint32_t hidDimCompressNum;
@@ -157,16 +160,10 @@ struct HammingTilingData {
 
     uint32_t totalNum;
     uint32_t groupNum;
-
-    uint32_t chunkSize;
-    uint32_t chunkRepeat;
-    uint32_t chunkTailMask;
-    uint32_t chunkNum;
-    uint32_t chunkTail;
-    uint32_t chunkMode;
-    uint32_t chunkTopKNum;
+    uint32_t bufferNum;
 
     uint32_t scalarSize;
+
 
 
     uint32_t qHashCoreOffset;
@@ -178,41 +175,57 @@ struct HammingTilingData {
 
 
     uint32_t seqLenTilingLen;
-    uint32_t seqLenTilingLenPad;
     uint32_t seqLenTilingNum;
     uint32_t seqLenTilingTailLen;
     uint32_t seqLenBlockNum;
 
 
-    uint32_t hDimTilingLen;
-    uint32_t hDimTilingNum;
-    uint32_t hDimTilingTailLen;
-
-
-    uint32_t bufferNum;
     uint32_t qHashTilingSize;
     uint32_t qHashSingleTilingSize;
     uint32_t kHashTilingSize;
     uint32_t kHashSingleTilingSize;
-# 79 "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/hamming_dist_top_k_custom_tiling.h"
+
+    uint32_t tmpWorkSpaceSize;
+
+
+    uint32_t reduceSumWorkSpaceSize = 512;
+
     uint32_t hammingXORTilingSize;
     uint32_t hammingXORSingleTilingSize;
     uint32_t hammingRightTilingSize;
     uint32_t hammingRightSingleTilingSize;
+    uint32_t hammingCastTilingSize;
+    uint32_t hammingCastSingleTilingSize;
+    uint32_t hammingLastRowTilingSize;
+    uint32_t hammingLastRowSingleTilingSize;
     uint32_t hammingSumTilingSize;
     uint32_t hammingSumSingleTilingSize;
+    uint32_t hammingCumTilingSize;
+    uint32_t hammingCumSingleTilingSize;
     uint32_t hammingReduceTilingSize;
     uint32_t hammingReduceSingleTilingSize;
     uint32_t hammingResultTilingSize;
     uint32_t hammingResultSingleTilingSize;
-    uint32_t hammingChunkTilingSize;
-    uint32_t hammingChunkSingleTilingSize;
 
-    uint32_t indexChunkTilingSize;
-    uint32_t indexChunkSingleTilingSize;
-    uint32_t topKChunkTilingSize;
-    uint32_t topKChunkSingleTilingSize;
+    uint32_t resultSize;
+    uint32_t resultSingleSize;
 
+    uint32_t resultChunkSize;
+    uint32_t resultChunkSingleSize;
+
+
+    uint32_t chunkSize;
+    uint32_t chunkRepeat;
+    uint32_t chunkTailMask;
+    uint32_t chunkMode;
+    uint32_t chunkTopKNum;
+
+
+    uint32_t indexChunkSize;
+    uint32_t indexChunkSingleSize;
+    uint32_t topKChunkSize;
+    uint32_t topKChunkSingleSize;
+# 113 "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/hamming_dist_top_k_custom_tiling.h"
 };
 
 
@@ -254,7 +267,7 @@ extern "C" uint32_t aclrtlaunch_hamming_dist_top_k_custom(uint32_t blockDim, voi
 
     uint32_t __ascendc_ret;
 #if defined ASCENDC_DUMP || defined ASCENDC_TIME_STAMP_ON
-    constexpr uint32_t __ascendc_one_core_dump_size = 1024;
+    constexpr uint32_t __ascendc_one_core_dump_size = 1048576;
     AllocAscendMemDevice(&(__ascendc_args.__ascendc_dump), __ascendc_one_core_dump_size * 75);
 #endif
     constexpr uint32_t __ascendc_overflow_status_size = 8;
@@ -264,10 +277,12 @@ extern "C" uint32_t aclrtlaunch_hamming_dist_top_k_custom(uint32_t blockDim, voi
     __ascendc_args.index = index;
     (void) memcpy_s(&__ascendc_args.tiling, sizeof(__ascendc_args.tiling), tiling, sizeof(__ascendc_args.tiling));
 
+    const char *__ascendc_name = "hamming_dist_top_k_custom";
     ascendc_set_exception_dump_info(__ascendc_one_core_dump_size);
     __ascendc_ret = launch_and_profiling_hamming_dist_top_k_custom(0, blockDim, stream, (void **)&__ascendc_args, sizeof(__ascendc_args));
     KernelHandleGradUnregister::GetInstance();
 #if defined ASCENDC_DUMP || defined ASCENDC_TIME_STAMP_ON
+    Adx::AdumpPrintWorkSpace(__ascendc_args.__ascendc_dump, __ascendc_one_core_dump_size * 75, stream, __ascendc_name);
     FreeAscendMemDevice(__ascendc_args.__ascendc_dump);
 #endif
     FreeAscendMemDevice(__ascendc_args.__ascendc_overflow);

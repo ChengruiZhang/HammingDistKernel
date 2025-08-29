@@ -99,8 +99,8 @@ cmake --install build
 
 rm -f ascendc_kernels_bbit
 cp ./out/bin/ascendc_kernels_bbit ./
-rm -rf input output
-mkdir -p input output
+# rm -rf input output
+# mkdir -p input output
 
 # python3 scripts/gen_data.py
 # (

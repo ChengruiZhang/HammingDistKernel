@@ -32,6 +32,8 @@ int32_t main(int32_t argc, char *argv[])
 {
     uint32_t batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize;
 
+    // fprintf(1);
+    std::cout << 1 << std::endl;
     // parse args
     batchSize = std::stoi(argv[1]);
     seqLen = std::stoi(argv[2]);
@@ -39,8 +41,8 @@ int32_t main(int32_t argc, char *argv[])
     headK = std::stoi(argv[4]);
     hidDim = std::stoi(argv[5]);
     topK = std::stoi(argv[6]);
-    chunkSize = std::stoi(argv[7]);
-    int32_t deviceId = std::stoi(argv[8]);
+    int32_t deviceId = std::stoi(argv[7]);
+    chunkSize = 16;
 
     fprintf(stderr, "Operator Input Params: batchSize=%d, seqLen=%d, headQ=%d, headK=%d, hidDim=%d, topK=%d, chunkSize=%d\n", 
             batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize);
@@ -54,10 +56,10 @@ int32_t main(int32_t argc, char *argv[])
     size_t indexFileSize = batchSize * headK * compressedTopK * sizeof(GM_idx_type);
 
     // 待定
-    constexpr uint32_t BLOCK_DIM = VEC_NUM;
+    constexpr uint32_t BLOCK_DIM = 1;
     uint8_t *tiling = nullptr;
     // constexpr uint32_t DATA_TYPE_SIZE[] = {2, 2, 4, 1, 2, 4};
-    size_t tilingSize = 19 * sizeof(uint32_t);
+    size_t tilingSize = 60 * sizeof(uint32_t);
 
 #ifdef ASCENDC_CPU_DEBUG
     tiling = (uint8_t *)AscendC::GmAlloc(tilingSize);
@@ -73,7 +75,7 @@ int32_t main(int32_t argc, char *argv[])
     uint8_t *qHashDevice, *kHashDevice, *topKDevice;
 
     CHECK_ACL(aclrtMallocHost((void **)(&tiling), tilingSize));
-    // ReadFile("./input/input_tiling.bin", tilingSize, tiling, tilingSize);
+    ReadFile("./input/input_tiling.bin", tilingSize, tiling, tilingSize);
 #endif
 
     // GenerateTilingData(tiling, BLOCK_DIM);
