@@ -6,5 +6,5 @@ CXX_DEFINES = -D_GLIBCXX_USE_CXX11_ABI=0 -Dascendc_kernels_npu_EXPORTS
 
 CXX_INCLUDES = -I/home/westhpc/Ascend/ascend-toolkit/latest/include
 
-CXX_FLAGS = -g -fPIC -O2 -std=c++17 -fPIC -O0 -std=c++11 -fvisibility-inlines-hidden -fstack-protector-strong
+CXX_FLAGS = -g -fPIC -O0 -g -std=c++17 -fPIC -std=c++11 -fvisibility-inlines-hidden -fstack-protector-strong
 

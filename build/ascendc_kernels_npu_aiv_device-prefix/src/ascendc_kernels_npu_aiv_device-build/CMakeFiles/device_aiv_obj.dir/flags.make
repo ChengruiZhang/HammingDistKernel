@@ -8,5 +8,5 @@ CXX_INCLUDES = -I/home/westhpc/Ascend/ascend-toolkit/latest/tools/tikcpp/tikcfw 
 
 CXX_FLAGS = -g --cce-disable-kernel-global-attr-check --cce-aicore-arch=dav-c220-vec --cce-aicore-only --cce-auto-sync -mllvm -cce-aicore-stack-size=0x8000 -mllvm -cce-aicore-function-stack-size=0x8000 -mllvm -cce-aicore-record-overflow=true -mllvm -cce-aicore-addr-transform -mllvm -cce-aicore-dcci-insert-for-scalar=false -O3 -std=c++17 --cce-aicore-lang -include /home/westhpc/Ascend/ascend-toolkit/latest/tools/../include/version/cann_version.h
 
-# Custom defines: CMakeFiles/device_aiv_obj.dir/data/RayCode/hamming_dist_top_k/HammingDistKernel/build/auto_gen/ascendc_kernels_npu/auto_gen_hamming_dist_top_k_custom.cpp.o_DEFINES = ;auto_gen_hamming_dist_top_k_custom_kernel=hamming_dist_top_k_custom_0;ONE_CORE_DUMP_SIZE=1048576
+# Custom defines: CMakeFiles/device_aiv_obj.dir/data/RayCode/hamming_dist_top_k/HammingDistKernel/build/auto_gen/ascendc_kernels_npu/auto_gen_hamming_dist_top_k_custom.cpp.o_DEFINES = ;auto_gen_hamming_dist_top_k_custom_kernel=hamming_dist_top_k_custom_0;ONE_CORE_DUMP_SIZE=1024
 

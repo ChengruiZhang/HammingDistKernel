@@ -117,6 +117,8 @@ if __name__ == "__main__":
     groupNum = HeadQ // HeadK
     assert(HeadQ % HeadK == 0)
 
+    UB_SIZE = 240 * 1024
+
     chunkSize = 16
     dataBlockSize = 16
 
@@ -187,6 +189,9 @@ if __name__ == "__main__":
     topKChunkSize = topKComprssedPad * bufferNum
     topKChunkSingleSize = topKComprssedPad
 
+    totalBytes = (hammingXORTilingSize + hammingRightTilingSize + qHashTilingSize + kHashTilingSize + scalarSize) * 2 + (hammingSumTilingSize + hammingCumTilingSize + hammingReduceTilingSize + hammingCastTilingSize + hammingLastRowTilingSize + tmpWorkSpaceSize + reduceSumWorkSpaceSize + resultSize + resultChunkSize) * 2 + (indexChunkSize + topKChunkSize) * 4
+    print(totalBytes)
+    assert(totalBytes < UB_SIZE)
 
     data = {
         "batchSize": batchSize,

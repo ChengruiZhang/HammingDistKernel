@@ -11,10 +11,14 @@ include(${ASCENDC_CMAKE_DIR}/ascendc.cmake)
 ascendc_library(ascendc_kernels_${RUN_MODE} SHARED ${KERNEL_FILES})
 
 target_compile_options(ascendc_kernels_${RUN_MODE} PRIVATE
- -O2
+ -O0
+ -g
  -std=c++17
 )
 
-ascendc_compile_definitions(ascendc_kernels_${RUN_MODE} PRIVATE
-    # -DASCENDC_DUMP=1
+ascendc_compile_definitions(ascendc_kernels_${RUN_MODE} PRIVATE 
+#   $<$<BOOL:$<IN_LIST:${SOC_VERSION},${CUSTOM_ASCEND310P_LIST}>>:CUSTOM_ASCEND310P>
+#   -DASCENDC_DUMP
+#   -DHAVE_WORKSPACE
+#   -DHAVE_TILING
 )

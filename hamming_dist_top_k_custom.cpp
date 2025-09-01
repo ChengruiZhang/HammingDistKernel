@@ -446,8 +446,8 @@ public:
                                     hammingCum1UB, hammingCum2UB, 
                                     hammingReduceUB, 
                                     // hammingResultUB, 
-                                    resultUB, resultChunkUB, reduceSumWorkSpaceUB, topKChunkUB; // result
-        LocalTensor<indexDataType> indexChunkUB;
+                                    resultUB, resultChunkUB, reduceSumWorkSpaceUB; // result
+        LocalTensor<indexDataType> indexChunkUB, topKChunkUB;
         // AscendC::PRINTF("%d", param_.indexChunkSize);
 
         // SetTensorAddr<computeDataType>(hammingReduceUB, param_.hammingReduceTilingSize, hammingReduceBaseUB, 11);
@@ -474,12 +474,14 @@ public:
         SetTensorAddr<hashDataType>(tmpWorkSpaceUB, param_.tmpWorkSpaceSize, tmpWorkSpaceBaseUB, 11);
         // VECOUT
         SetTensorAddr<indexDataType>(indexChunkUB, param_.indexChunkSize, indexChunkBaseUB, 10);
-        SetTensorAddr<computeDataType>(topKChunkUB, param_.topKChunkSize, topKChunkBaseUB, 10); // final results
+        SetTensorAddr<indexDataType>(topKChunkUB, param_.topKChunkSize, topKChunkBaseUB, 10); // final results
         // ************ memory alloc end ************
+        PipeBarrier<PIPE_ALL>();
 
-        AscendC::PRINTF("%d", param_.indexChunkSize);
-        // GenerateIndex(indexChunkUB, 0, 1, param_.indexChunkSize); // ArithProgression or CreateVecIndex -- TBD -- done
+        // AscendC::PRINTF("%d", param_.indexChunkSize);
         ArithProgression<indexDataType>(indexChunkUB, static_cast<indexDataType>(0), static_cast<indexDataType>(1), static_cast<indexDataType>(param_.indexChunkSize));
+        PipeBarrier<PIPE_ALL>();
+        // GenerateIndex(indexChunkUB, 0, 1, param_.indexChunkSize); // ArithProgression or CreateVecIndex -- TBD -- done
         // PipeBarrier<PIPE_ALL>();
         // SetScalarValue(scalarUB);
         // PipeBarrier<PIPE_V>();

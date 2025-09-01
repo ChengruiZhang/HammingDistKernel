@@ -257,11 +257,11 @@ CMakeFiles/merge_aic_obj_text.dir/clean:
 # Target rules for target CMakeFiles/_host_cpp.dir
 
 # All Build rule for target.
+CMakeFiles/_host_cpp.dir/all: CMakeFiles/merge_aic_obj_text.dir/all
+CMakeFiles/_host_cpp.dir/all: CMakeFiles/preprocess_obj.dir/all
 CMakeFiles/_host_cpp.dir/all: CMakeFiles/aiv_obj.dir/all
 CMakeFiles/_host_cpp.dir/all: CMakeFiles/merge_aiv_obj_text.dir/all
 CMakeFiles/_host_cpp.dir/all: CMakeFiles/aic_obj.dir/all
-CMakeFiles/_host_cpp.dir/all: CMakeFiles/merge_aic_obj_text.dir/all
-CMakeFiles/_host_cpp.dir/all: CMakeFiles/preprocess_obj.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/_host_cpp.dir/build.make CMakeFiles/_host_cpp.dir/depend
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/_host_cpp.dir/build.make CMakeFiles/_host_cpp.dir/build
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-build/CMakeFiles --progress-num= "Built target _host_cpp"
@@ -279,11 +279,11 @@ _host_cpp: CMakeFiles/_host_cpp.dir/rule
 .PHONY : _host_cpp
 
 # codegen rule for target.
+CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/merge_aic_obj_text.dir/all
+CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/preprocess_obj.dir/all
 CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/aiv_obj.dir/all
 CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/merge_aiv_obj_text.dir/all
 CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/aic_obj.dir/all
-CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/merge_aic_obj_text.dir/all
-CMakeFiles/_host_cpp.dir/codegen: CMakeFiles/preprocess_obj.dir/all
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/_host_cpp.dir/build.make CMakeFiles/_host_cpp.dir/codegen
 	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_preprocess-prefix/src/ascendc_kernels_npu_preprocess-build/CMakeFiles --progress-num= "Finished codegen for target _host_cpp"
 .PHONY : CMakeFiles/_host_cpp.dir/codegen
