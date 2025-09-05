@@ -1,0 +1,604 @@
+/**
+ * @file hamming_dist_top_k_custom.cpp
+ *
+ * Copyright (C) 2025. Huawei Technologies Co., Ltd. All rights reserved.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+ */
+#include "hamming_dist_top_k_custom_tiling.h"
+#include "hamming_dist_top_k_custom_base.h"
+#include "kernel_operator.h"
+
+constexpr int32_t UB_SIZE = 256; // 256 KB
+
+using namespace AscendC;
+
+template <typename hashDataType, typename computeDataType, typename indexDataType> 
+class KernelHammingDistTopK {
+public:
+    __aicore__ inline KernelHammingDistTopK() {}
+
+    /* @brief:
+    * 输入qHash: [B, Hk, G, HDim] ND格式存放，kHash: [B, Hk, SeqLen, HDim] ND格式存放
+    * 在B和Hk维度分核，每一个核对于qHash的地址变化为 qHashCoreOffset=G*HDim*sizeof(type)
+    * 对于kHash的变化为 kHashCoreOffset=SeqLen*HDim*sizeof(type)
+    * 
+    */
+    __aicore__ inline void Init(GM_ADDR qHash, GM_ADDR kHash, GM_ADDR index, HammingTilingData tiling)
+    {
+        // 初始化scalar
+        // auto blockidx = GetBlockIdx();
+        qHashGm.SetGlobalBuffer(reinterpret_cast<__gm__ hashDataType*>(qHash));
+        kHashGm.SetGlobalBuffer(reinterpret_cast<__gm__ hashDataType*>(kHash));
+        indexGm.SetGlobalBuffer(reinterpret_cast<__gm__ indexDataType*>(index));
+
+        param_.batchSize              = tiling.batchSize;
+        param_.seqLen                 = tiling.seqLen;
+        param_.seqLenPad              = tiling.seqLenPad;
+        param_.seqBlock               = tiling.seqBlock;
+
+        param_.topK                   = tiling.topK;
+        param_.topKCompressed         = tiling.topKCompressed;
+        param_.topKComprssedPad       = tiling.topKComprssedPad;
+
+        param_.hidDim                 = tiling.hidDim;
+        param_.hidDimCompressNum      = tiling.hidDimCompressNum;
+        param_.hidDimCompressPadNum   = tiling.hidDimCompressPadNum;
+        param_.hidDimCompressAddNum   = tiling.hidDimCompressAddNum;
+
+        param_.totalNum               = tiling.totalNum;
+        param_.groupNum               = tiling.groupNum;
+        param_.bufferNum              = tiling.bufferNum;
+        param_.scalarSize             = tiling.scalarSize;
+
+        param_.qHashCoreOffset        = tiling.qHashCoreOffset;
+        param_.kHashCoreOffset        = tiling.kHashCoreOffset;
+        param_.indexCoreOffset        = tiling.indexCoreOffset;
+        param_.qHashCoreOffsetBlock   = tiling.qHashCoreOffsetBlock;
+        param_.kHashCoreOffsetBlock   = tiling.kHashCoreOffsetBlock;
+        param_.indexCoreOffsetBlock   = tiling.indexCoreOffsetBlock;
+
+        param_.seqLenTilingLen        = tiling.seqLenTilingLen;
+        param_.seqLenTilingNum        = tiling.seqLenTilingNum;
+        param_.seqLenTilingTailLen    = tiling.seqLenTilingTailLen;
+        param_.seqLenBlockNum         = tiling.seqLenBlockNum;
+
+        param_.qHashTilingSize        = tiling.qHashTilingSize;
+        param_.qHashSingleTilingSize  = tiling.qHashSingleTilingSize;
+        param_.kHashTilingSize        = tiling.kHashTilingSize;
+        param_.kHashSingleTilingSize  = tiling.kHashSingleTilingSize;
+
+        param_.tmpWorkSpaceSize       = tiling.tmpWorkSpaceSize;
+        param_.reduceSumWorkSpaceSize = tiling.reduceSumWorkSpaceSize;
+
+        param_.hammingXORTilingSize         = tiling.hammingXORTilingSize;
+        param_.hammingXORSingleTilingSize   = tiling.hammingXORSingleTilingSize;
+        param_.hammingRightTilingSize       = tiling.hammingRightTilingSize;
+        param_.hammingRightSingleTilingSize = tiling.hammingRightSingleTilingSize;
+        param_.hammingCastTilingSize        = tiling.hammingCastTilingSize;
+        param_.hammingCastSingleTilingSize  = tiling.hammingCastSingleTilingSize;
+        param_.hammingLastRowTilingSize     = tiling.hammingLastRowTilingSize;
+        param_.hammingLastRowSingleTilingSize = tiling.hammingLastRowSingleTilingSize;
+        param_.hammingSumTilingSize         = tiling.hammingSumTilingSize;
+        param_.hammingSumSingleTilingSize   = tiling.hammingSumSingleTilingSize;
+        param_.hammingCumTilingSize         = tiling.hammingCumTilingSize;
+        param_.hammingCumSingleTilingSize   = tiling.hammingCumSingleTilingSize;
+        param_.hammingReduceTilingSize      = tiling.hammingReduceTilingSize;
+        param_.hammingReduceSingleTilingSize= tiling.hammingReduceSingleTilingSize;
+        param_.hammingResultTilingSize      = tiling.hammingResultTilingSize;
+        param_.hammingResultSingleTilingSize= tiling.hammingResultSingleTilingSize;
+
+        param_.resultSize              = tiling.resultSize;
+        param_.resultSingleSize        = tiling.resultSingleSize;
+        param_.resultChunkSize         = tiling.resultChunkSize;
+        param_.resultChunkSingleSize   = tiling.resultChunkSingleSize;
+
+        param_.chunkSize               = tiling.chunkSize;
+        param_.chunkRepeat             = tiling.chunkRepeat;
+        param_.chunkTailMask           = tiling.chunkTailMask;
+        param_.chunkMode               = tiling.chunkMode;
+        param_.chunkTopKNum            = tiling.chunkTopKNum;
+
+        param_.indexChunkSize          = tiling.indexChunkSize;
+        param_.indexChunkSingleSize    = tiling.indexChunkSingleSize;
+        param_.topKChunkSize           = tiling.topKChunkSize;
+        param_.topKChunkSingleSize     = tiling.topKChunkSingleSize;
+
+
+    }
+
+    /* @brief: 搬入数据
+    * Dst tensor, Src tensor
+    */
+    template <typename T = int16_t>
+    __aicore__ inline void DataCopyInCustom(const LocalTensor<T>& dst, 
+                                            const GlobalTensor<T>& src, 
+                                            int64_t blockLen, int64_t blockCount,
+                                            int64_t rightPadding = 0, int64_t paddingValue = 0,
+                                            int64_t dstStride = 0, int64_t srcStride = 0){
+        
+        
+        DataCopyExtParams dataCopyExtParams;
+        dataCopyExtParams.blockCount = blockCount;
+        dataCopyExtParams.blockLen = blockLen;
+        dataCopyExtParams.dstStride = dstStride;
+        dataCopyExtParams.srcStride = srcStride;
+
+        DataCopyPadExtParams<T> dataCopyPadExtParams;
+        dataCopyPadExtParams.isPad = true;
+        dataCopyPadExtParams.rightPadding = 0; // 0 for hashDataType
+        dataCopyPadExtParams.paddingValue = 0; // 0 for hashDataType
+        DataCopyPad(dst, src, dataCopyExtParams, dataCopyPadExtParams);
+    }
+
+    /* @brief: 搬出数据
+    * Dst tensor, Src tensor
+    */
+    template <typename T = half>
+    __aicore__ inline void DataCopyOutCustom(const GlobalTensor<T>& dst, 
+                                             const LocalTensor<T>& src, 
+                                             int64_t blockLen, 
+                                             int64_t blockCount){
+        
+        DataCopyExtParams dataCopyExtParams;
+        dataCopyExtParams.blockCount = blockCount;
+        dataCopyExtParams.blockLen = blockLen;
+
+        DataCopyPad(dst, src, dataCopyExtParams);
+    }
+
+
+    /* @brief: 对[M, N]的向量进行除法
+    * input: srcTensor, M, N, scalar, axis
+    * output: dstTensor
+    */
+    template <typename T = uint16_t>
+    __aicore__ inline void TensorDiv(){
+        // 扩充
+    }
+
+    // template <typename T = int16_t>
+    __aicore__ inline void XORCustom(const LocalTensor<hashDataType>& dst, 
+                               const LocalTensor<hashDataType>& qHash, const LocalTensor<hashDataType>& kHash, 
+                               const LocalTensor<hashDataType>& tmp, uint32_t group, uint32_t seqLen){
+
+        // duplicate kHash to tmp
+        for (size_t i = 0; i < group; i++)
+        {
+            DataCopy(tmp[i * param_.hidDimCompressPadNum], kHash[seqLen * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
+        }
+        PipeBarrier<PIPE_V>();
+        
+        Xor(dst, qHash, tmp, param_.hidDimCompressPadNum * group);
+        PipeBarrier<PIPE_V>();
+
+        // for (uint32_t i = 0; i < group; i++){
+        //     Xor(dst[i * param_.hidDimCompressPadNum], qHash[i * param_.hidDimCompressPadNum], kHash[seqLen * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
+        //     PipeBarrier<PIPE_V>();
+        // }
+    }
+
+    /* @brief: 计算kHash和qHash的距离，通过求XOR和右移看奇偶获取汉明距离
+    * output: hammingSumUB
+    * input: qHash, kHash,
+    *        XOR, rightShift
+    *        hammingReduce, hammingSum
+    *        scalar
+    *        qHash [Group, HDim], SeqLen, curTile
+    * 这里有一个在SeqLen上的内循环，以支持
+    */
+    // template <typename T = int16_t>
+
+    __aicore__ inline void Hamming(const LocalTensor<computeDataType>& result, 
+                                   const LocalTensor<hashDataType>& qHash, const LocalTensor<hashDataType>& kHash, 
+                                   const LocalTensor<hashDataType>& XOR, const LocalTensor<hashDataType>& rightShift,
+                                   const LocalTensor<computeDataType>& hammingCast, LocalTensor<computeDataType>& hammingLastRow,
+                                   const LocalTensor<computeDataType>& hammingSum, LocalTensor<computeDataType>& hammingCum, 
+                                   const LocalTensor<computeDataType>& hammingReduce, 
+                                //    const LocalTensor<computeDataType>& hammingResult, 
+                                   const LocalTensor<hashDataType>& scalar, 
+                                   const LocalTensor<computeDataType>& reduceSumWorkSpaceSize, const LocalTensor<hashDataType>& tmp,
+                                   uint32_t group, uint32_t HDim, uint32_t seqLen, uint32_t curTile){
+        
+
+        static constexpr AscendC::CumSumConfig cumSumConfig{true, false, true};
+        const AscendC::CumSumInfo cumSumInfo{group, 16};
+
+        // BinaryRepeatParams binaryRepeatParams;
+
+        // TBD 由于后续需要做转置，因此seqlen需要输入进hamming中，并且转置后做一次掩码
+        // 每次针对一个seqlen进行操作
+        for (uint32_t i = 0; i < seqLen; i++){
+            // compute Hamming
+            XORCustom(XOR, qHash, kHash, tmp, group, i); // 获得 T_HDimPad * G
+            // PipeBarrier<PIPE_V>();
+
+            // x = x - ((x >> 1) & 0x5555555555555555ULL);              // 每2位计数
+            ShiftRight(rightShift, XOR, (hashDataType)1, group * 16); // rightShift = x >> 1, 只有group个参与,*16是因为有16个元素组成一个datablock
+            PipeBarrier<PIPE_V>();
+            And(rightShift, rightShift, scalar[0], group * 16); // scalar[0-8] = 0x5555555555555555ULL 
+            PipeBarrier<PIPE_V>();
+            Sub(XOR, XOR, rightShift, group * 16); // XOR = x - ((x >> 1) & 0x5555555555555555ULL)
+            PipeBarrier<PIPE_V>();
+            
+            // x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL); // 每4位计数
+            ShiftRight(rightShift, XOR, (hashDataType)2, group * 16);
+            PipeBarrier<PIPE_V>();
+            And(rightShift, rightShift, scalar[16 * group], group * 16); // scalar[16-24] = 0x3333333333333333ULL
+            PipeBarrier<PIPE_V>();
+            And(XOR, XOR, scalar[16 * group], group * 16); // scalar[16] = 0x3333333333333333ULL
+            PipeBarrier<PIPE_V>();
+            Add(XOR, XOR, rightShift, group * 16); // XOR = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL)
+            PipeBarrier<PIPE_V>();
+
+            // x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;               // 每8位计数
+            ShiftRight(rightShift, XOR, (hashDataType)4, group * 16);
+            PipeBarrier<PIPE_V>();
+            Add(XOR, XOR, rightShift, group * 16);
+            PipeBarrier<PIPE_V>();
+            And(XOR, XOR, scalar[32 * group], group * 16); // scalar[32-40] = 0x0F0F0F0F0F0F0F0ULL
+            PipeBarrier<PIPE_V>();
+
+            // x = x + (x >> 8);                                        // 每16位
+            ShiftRight(rightShift, XOR, (hashDataType)8, group * 16);
+            PipeBarrier<PIPE_V>();
+            Add(XOR, XOR, rightShift, group * 16);
+            PipeBarrier<PIPE_V>();
+
+            // x = x & 0x1F;                             // 最终结果
+            And(XOR, XOR, scalar[48 * group], group * 16);       // scalar[48-56] = 0x000000000000007F
+            PipeBarrier<PIPE_V>();
+
+            // 计算完一个SeqLen的Hamming，接下来进行Cast
+            AscendC::RoundMode roundMode = AscendC::RoundMode::CAST_ROUND;
+            Cast<computeDataType, hashDataType>(hammingCast, XOR, roundMode, group * 16); // hammingLastRow [1, 16] -- 16是DATABLOCKLEN
+
+            // // 计算完一个SeqLen的Hamming，接下来进行CumSum
+            CumSum<computeDataType, cumSumConfig>(hammingCum, hammingLastRow, hammingCast, cumSumInfo);      // hammingSum [T_S, 16] -- 16是DATABLOCKLEN
+            PipeBarrier<PIPE_V>();
+
+            CopyRepeatParams copyRepeatParams;
+            copyRepeatParams.srcStride = 0;
+            copyRepeatParams.dstStride = 0;
+            copyRepeatParams.srcRepeatSize = 0; 
+            copyRepeatParams.dstRepeatSize = 0;
+
+            // copy hammingLastRow to hammingSum
+            Copy(hammingSum[i * 16], hammingLastRow, 8, 0, copyRepeatParams); //
+            PipeBarrier<PIPE_V>();
+
+        }
+
+        // 算完cumsum后，需要对sum进行求reducesum [T_seqLen, DATABLOCKLEN] -> [T_seqLen, 1] -- TBD -- 当前假定seqLen都是整数倍
+        BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, seqLen / 8, 128, 8, 8, 8);
+        PipeBarrier<PIPE_V>();
+        // // 尾块
+        // BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, seqlen / 8, 128, 8, 8, 8);
+        // PipeBarrier<PIPE_V>();
+
+        CopyRepeatParams copyRepeatParams;
+        copyRepeatParams.srcStride = 1;
+        copyRepeatParams.dstStride = 1;
+        copyRepeatParams.srcRepeatSize = 8;
+        copyRepeatParams.dstRepeatSize = 8;
+        // copy hammingReduce to hammingResult
+        Copy(result[curTile * param_.seqLenTilingLen], hammingReduce, 128, seqLen / 128, copyRepeatParams); // hammingResult [G, T_S]
+        PipeBarrier<PIPE_V>();
+
+        // // Transpose Sum结果，并将首行搬运至 hammingResult
+        // for (uint32_t i = 0; i < param_.seqLenBlockNum; i++){
+        //     Transpose(hammingSum[i * 256], hammingSum[i * 256]); // hammingResult [G, T_S]
+        // }
+
+        // CopyRepeatParams copyRepeatParams;
+        // copyRepeatParams.srcStride = 0;
+        // copyRepeatParams.dstStride = 0;
+        // copyRepeatParams.srcRepeatSize = 16; 
+        // copyRepeatParams.dstRepeatSize = 0;
+
+        // Copy(hammingResult[curTile * param_.seqLenTilingLenPad], hammingSum, 16, param_.seqLenBlockNum - 1, copyRepeatParams); // 将首行搬运至 hammingResult [G, T_S]， 每次搬运的个数为16
+        // Copy(hammingResult[curTile * param_.seqLenTilingLenPad + (param_.seqLenBlockNum - 1) * param_.seqLenTilingLenPad], hammingSum[(param_.seqLenBlockNum - 1) * 256], param_.seqLenTilingTailLen, 1, copyRepeatParams); // 尾块 -- TBD
+        // // Transpose(hammingResult, hammingSum), 
+        // PipeBarrier<PIPE_V>();
+
+    }
+
+    // template <typename T = uint16_t>
+    __aicore__ inline void ReduceMaxCustom(const LocalTensor<computeDataType> &outTensor, const LocalTensor<computeDataType> &inTensor, 
+                                            const uint8_t chunkSize){
+
+        int32_t totalRepeat = param_.chunkRepeat; /* 8: BlockReduceMax一次并行计算8个dataBlock */
+        int32_t repeat = MAX_REPEAT_TIMES < totalRepeat ? MAX_REPEAT_TIMES : totalRepeat;
+        int32_t loopNum = matmul::CeilDiv(totalRepeat, repeat);
+        int32_t tailRepeat = totalRepeat - (loopNum - 1) * repeat;
+        // int32_t chunkRepeatTail = param_.chunkRepeatTail;
+
+        uint64_t mask[2]; /* 2: 逐bit设置mask，需要2个64bit */
+        if (chunkSize == 16) { /* chunkSize 只支持16*/
+            mask[0] = UINT64_MAX;
+            mask[1] = UINT64_MAX;
+
+            uint32_t srcOffset = 0;
+            uint32_t dstOffset = 0;
+            for (int32_t i = 0; i < loopNum - 1; i++) {
+                BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], repeat, mask, 1, 1, 8); // 8: srcRepStride
+                srcOffset += repeat * 8 * 16; /* 8: BlockReduceMax一次并行计算8个dataBlock, 16: 每个dataBlock有32Bytes，包含16个half的值*/
+                dstOffset += repeat * 8; /* 8: BlockReduceMax一次并行计算8个dataBlock, 输出8个点 */
+            }
+            BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], tailRepeat - 1, mask, 1, 1, 8); // 8: srcRepStride
+            srcOffset += (tailRepeat - 1) * 8 * 16; 
+            dstOffset += (tailRepeat - 1) * 8; 
+            BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], 1, param_.chunkTailMask, 1, 1, 8); // 8: srcRepStride
+        }
+
+}
+
+    /* @brief: 在这里对输入的序列进行Chunk缩减
+    * output: outTensor
+    * input: inTensor; ChunkSize, chunkNum, chunkTail, ChunkMode
+    */
+    // template <typename T = uint16_t>
+    __aicore__ inline void ChunkCompress(const LocalTensor<computeDataType>& outTensor, const LocalTensor<computeDataType>& inTensor, uint32_t chunkSize,
+                                         uint32_t chunkMode){
+        if (chunkMode == 0) { // BlockMax
+            ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
+        }
+    }
+
+    // /* @brief: 在这里计算topk
+    // * output: dstIndexLocal
+    // * input: srcValueLocal, srcIndexLocal, k, 
+    // */
+    // template <typename T>
+    // __aicore__ inline void TopKCustom(const LocalTensor<int32_t> &dstIndexLocal,
+    //                                   const LocalTensor<T> &srcValueLocal, const LocalTensor<int32_t> &srcIndexLocal,
+    //                                   const int32_t k, 
+    //     // 下面两个参数仍需修改
+    //     const HammingDistTopKTilingData &tiling, uint32_t n)
+    // {
+    //     LocalTensor<bool> finishLocal;
+    //     TopKInfo topkInfo;
+    //     topkInfo.outter = tiling.params.outter;
+    //     topkInfo.n = n;
+    //     topkInfo.inner = matmul::CeilDiv(n, 32) * 32; /* 32: inner has to be aligned to 32 */
+    //     TopK<half, true, false, false, TopKMode::TOPK_NORMAL>(dstValueLocal, dstIndexLocal, srcValueLocal, srcIndexLocal, finishLocal, k, tiling.topkTiling, topkInfo, true);
+    // }
+
+    template <typename T = half>
+    __aicore__ inline void SetTensorAddr(LocalTensor<T>& tensor, uint32_t dataLen, uint32_t bufferAddr, uint8_t logicPos){
+        TBuffAddr TBuffAddr_;
+        TBuffAddr_.dataLen = dataLen;
+        TBuffAddr_.bufferAddr = bufferAddr;
+        TBuffAddr_.logicPos = logicPos;
+        tensor.SetAddr(TBuffAddr_);
+    }
+
+    // template <typename T = int16_t>
+    __aicore__ inline void GenerateIndex(const LocalTensor<indexDataType>& tensor, int16_t start, int16_t step, uint32_t count){
+        ArithProgression<indexDataType>(tensor, static_cast<indexDataType>(start), static_cast<indexDataType>(step), static_cast<int32_t >(count));
+        PipeBarrier<PIPE_ALL>();
+    }
+
+    // 此处可通过duplicate优化
+    template <typename T = uint16_t>
+    __aicore__ inline void SetScalarValue(LocalTensor<T>& tensor){
+        for (uint32_t i = 0; i < param_.groupNum; i ++){
+            // 0x5555
+            for (uint32_t j = 0; j < 8; j++){
+                tensor.SetValue(i * 16 + j, uint16_t(0x5555));
+            }
+            // 0x3333
+            for (uint32_t j = 16; j < 24; j++){
+                tensor.SetValue(i * 16 + j + 16 * param_.groupNum, uint16_t(0x3333));
+            }
+            // 0x0F0F
+            for (uint32_t j = 32; j < 40; j++){
+                tensor.SetValue(i * 16 + j + 32 * param_.groupNum, uint16_t(0x0F0F));
+            }
+            // 0x001F
+            for (uint32_t j = 48; j < 56; j++){
+                tensor.SetValue(i * 16 + j + 40 * param_.groupNum, uint16_t(0x001F));
+            }
+        }
+    }
+
+    /* @brief:
+    * 第一版的分块策略为，针对每一个核处理的qHash[G, HDim] kHash[SeqLen, HDim]，在Seqlen维度和HDim维度进行分块，不对qhash的G进行分块
+    * 
+    */
+    __aicore__ inline void Process()
+    {
+
+        uint8_t blocknum = GetBlockNum();
+        int32_t loop_ping_flag = param_.bufferNum - 1;
+
+        // ************ memory alloc ************
+        // VECIN
+        int64_t qHashBaseUB = 0;
+        int64_t kHashBaseUB = qHashBaseUB + param_.qHashTilingSize;
+        int64_t scalarBaseUB = kHashBaseUB + param_.kHashTilingSize;
+        // VECALC
+        int64_t hammingXORBaseUB = 0;
+        int64_t hammingRightBaseUB = hammingXORBaseUB + param_.hammingXORTilingSize;
+        int64_t hammingCastBaseUB = hammingRightBaseUB + param_.hammingRightTilingSize;
+        int64_t hammingLastRow1BaseUB = hammingCastBaseUB + param_.hammingCastTilingSize;
+        int64_t hammingLastRow2BaseUB = hammingLastRow1BaseUB + param_.hammingLastRowSingleTilingSize;
+        int64_t hammingSumBaseUB = hammingLastRow2BaseUB + param_.hammingLastRowSingleTilingSize;
+        int64_t hammingCum1BaseUB = hammingSumBaseUB + param_.hammingSumTilingSize;
+        int64_t hammingCum2BaseUB = hammingCum1BaseUB + param_.hammingCumSingleTilingSize;
+        int64_t hammingReduceBaseUB = hammingCum2BaseUB + param_.hammingCumSingleTilingSize;
+        // int64_t hammingResultBaseUB = hammingReduceBaseUB + param_.hammingReduceTilingSize;
+        int64_t resultBaseUB = hammingReduceBaseUB + param_.hammingReduceTilingSize;
+        int64_t resultChunkBaseUB = resultBaseUB + param_.resultSize;
+        int64_t reduceSumWorkSpaceBaseUB = resultChunkBaseUB + param_.resultChunkSize;
+        int64_t tmpWorkSpaceBaseUB = reduceSumWorkSpaceBaseUB + param_.reduceSumWorkSpaceSize;
+        // VECOUT
+        int64_t indexChunkBaseUB = 0;
+        int64_t topKChunkBaseUB = indexChunkBaseUB + param_.indexChunkSize;
+
+        LocalTensor<hashDataType> qHashUB, kHashUB, // input
+                             scalarUB, // scalar
+                             XORUB, hammingRightUB, tmpWorkSpaceUB; // hamming result 
+        LocalTensor<computeDataType> hammingCastUB, hammingLastRow1UB, 
+                                    hammingLastRow2UB, hammingSumUB, 
+                                    hammingCum1UB, hammingCum2UB, 
+                                    hammingReduceUB, 
+                                    // hammingResultUB, 
+                                    resultUB, resultChunkUB, reduceSumWorkSpaceUB; // result
+        LocalTensor<indexDataType> indexChunkUB, topKChunkUB;
+        // AscendC::PRINTF("%d", param_.indexChunkSize);
+
+        // SetTensorAddr<computeDataType>(hammingReduceUB, param_.hammingReduceTilingSize, hammingReduceBaseUB, 11);
+        // 此处设置的时候就需要考虑 multi buffer
+        // VECIN
+        SetTensorAddr<hashDataType>(qHashUB, param_.qHashTilingSize, qHashBaseUB, 9);
+        SetTensorAddr<hashDataType>(kHashUB, param_.kHashTilingSize, kHashBaseUB, 9);
+        // VECIN -- Scalar
+        SetTensorAddr<hashDataType>(scalarUB, param_.scalarSize, scalarBaseUB, 9);
+        // VECALC
+        SetTensorAddr<hashDataType>(XORUB, param_.hammingXORTilingSize, hammingXORBaseUB, 11);
+        SetTensorAddr<hashDataType>(hammingRightUB, param_.hammingRightTilingSize, hammingRightBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingSumUB, param_.hammingSumTilingSize, hammingSumBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingCum1UB, param_.hammingCumSingleTilingSize, hammingCum1BaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingCum2UB, param_.hammingCumSingleTilingSize, hammingCum2BaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingReduceUB, param_.hammingReduceTilingSize, hammingReduceBaseUB, 11);
+        // SetTensorAddr<computeDataType>(hammingResultUB, param_.hammingResultTilingSize, hammingResultBaseUB, 11);
+        SetTensorAddr<computeDataType>(hammingLastRow1UB, param_.hammingLastRowSingleTilingSize, hammingLastRow1BaseUB, 11); 
+        SetTensorAddr<computeDataType>(hammingLastRow2UB, param_.hammingLastRowSingleTilingSize, hammingLastRow2BaseUB, 11); 
+        SetTensorAddr<computeDataType>(hammingCastUB, param_.hammingCastTilingSize, hammingCastBaseUB, 11); 
+        SetTensorAddr<computeDataType>(resultUB, param_.resultSize, resultBaseUB, 11); 
+        SetTensorAddr<computeDataType>(resultChunkUB, param_.resultChunkSize, resultChunkBaseUB, 11); 
+        SetTensorAddr<computeDataType>(reduceSumWorkSpaceUB, param_.reduceSumWorkSpaceSize, reduceSumWorkSpaceBaseUB, 11); 
+        SetTensorAddr<hashDataType>(tmpWorkSpaceUB, param_.tmpWorkSpaceSize, tmpWorkSpaceBaseUB, 11);
+        // VECOUT
+        SetTensorAddr<indexDataType>(indexChunkUB, param_.indexChunkSize, indexChunkBaseUB, 10);
+        SetTensorAddr<indexDataType>(topKChunkUB, param_.topKChunkSize, topKChunkBaseUB, 10); // final results
+        // ************ memory alloc end ************
+        PipeBarrier<PIPE_ALL>();
+
+        // AscendC::PRINTF("%d", param_.indexChunkSize);
+        ArithProgression<indexDataType>(indexChunkUB, static_cast<indexDataType>(0), static_cast<indexDataType>(1), static_cast<indexDataType>(param_.indexChunkSize));
+        PipeBarrier<PIPE_ALL>();
+        // GenerateIndex(indexChunkUB, 0, 1, param_.indexChunkSize); // ArithProgression or CreateVecIndex -- TBD -- done
+        // PipeBarrier<PIPE_ALL>();
+        // SetScalarValue(scalarUB);
+        // PipeBarrier<PIPE_V>();
+
+        for (uint32_t core_idx = GetBlockIdx(); core_idx < param_.totalNum; core_idx += blocknum){
+            
+            int64_t qHashGMOffset = core_idx * param_.qHashCoreOffset;
+            int64_t kHashGMOffset = core_idx * param_.kHashCoreOffset;
+            int64_t indexGMOffset = core_idx * param_.indexCoreOffset;
+            
+            // auto kHashOffset = loop_ping_flag ? kHashBaseUB + kHashSingleTilingSize : kHashBaseUB;
+            // auto hammingReduceUBOffset = loop_ping_flag ? hammingReduceBaseUB + param_.hammingReduceSingleTilingSize : hammingReduceBaseUB;
+
+            // VECIN
+            auto qHashUBOffset = loop_ping_flag ? qHashBaseUB + param_.qHashSingleTilingSize : qHashBaseUB;
+            auto kHashUBOffset = loop_ping_flag ? kHashBaseUB + param_.kHashSingleTilingSize : kHashBaseUB;
+            // VECALC
+            auto XORUBOffset = loop_ping_flag ? hammingXORBaseUB + param_.hammingXORSingleTilingSize : hammingXORBaseUB;
+            auto hammingRightUBOffset = loop_ping_flag ? hammingRightBaseUB + param_.hammingRightSingleTilingSize : hammingRightBaseUB;
+            auto hammingCastUBOffset = loop_ping_flag ? hammingCastBaseUB + param_.hammingCastSingleTilingSize : hammingCastBaseUB;
+            // auto hammingLastRowUBOffset = loop_ping_flag ? hammingLastRowBaseUB + param_.hammingLastRowSingleTilingSize : hammingLastRowBaseUB;
+            auto hammingSumUBOffset = loop_ping_flag ? hammingSumBaseUB + param_.hammingSumSingleTilingSize : hammingSumBaseUB;
+            // auto hammingCumUBOffset = loop_ping_flag ? hammingCumBaseUB + param_.hammingCumSingleTilingSize : hammingCumBaseUB;
+            auto hammingReduceUBOffset = loop_ping_flag ? hammingReduceBaseUB + param_.hammingReduceSingleTilingSize : hammingReduceBaseUB;
+            // auto hammingResultUBOffset = loop_ping_flag ? hammingResultBaseUB + param_.hammingResultSingleTilingSize : hammingResultBaseUB;
+            auto reduceSumWorkSpaceUBOffset = loop_ping_flag ? reduceSumWorkSpaceBaseUB + param_.reduceSumWorkSpaceSize : reduceSumWorkSpaceBaseUB;
+            auto tmpWorkSpaceUBOffset = loop_ping_flag ? tmpWorkSpaceBaseUB + param_.tmpWorkSpaceSize : tmpWorkSpaceBaseUB;
+            
+            auto resultUBOffset = loop_ping_flag ? resultBaseUB + param_.resultSingleSize : resultBaseUB;
+            auto resultChunkUBOffset = loop_ping_flag ? resultChunkBaseUB + param_.resultChunkSingleSize : resultChunkBaseUB;
+            // auto chunkUBOffset = loop_ping_flag ? resultChunkBaseUB + param_.chunkSingleSize : resultChunkBaseUB;
+            // VECOUT
+            auto indexChunkUBOffset = loop_ping_flag ? indexChunkBaseUB + param_.indexChunkSingleSize : indexChunkBaseUB;
+            auto topKChunkUBOffset = loop_ping_flag ? topKChunkBaseUB + param_.topKChunkSingleSize : topKChunkBaseUB;
+
+            // copyin qHash -- groupNum, HDim -- only once
+            DataCopyInCustom(qHashUB[qHashUBOffset], qHashGm[qHashGMOffset], 
+                             int64_t(param_.hidDimCompressNum * sizeof(hashDataType)), int64_t(param_.groupNum), 
+                             int64_t(param_.hidDimCompressAddNum * sizeof(hashDataType)), 0,
+                             0, 0);
+
+            // T_SeqLen 维度循环
+            for (uint32_t seqLenTiling = 0; seqLenTiling < param_.seqLenTilingNum; seqLenTiling += 1){
+                
+                auto curSeqLen = seqLenTiling == param_.seqLenTilingNum - 1 ? param_.seqLenTilingTailLen : param_.seqLenTilingLen;
+                
+                // copyin kHash -- T_SeqLen, HDim
+                DataCopyInCustom(kHashUB[kHashUBOffset], kHashGm[kHashGMOffset], // 此处写错了TBD
+                                 int64_t(param_.hidDimCompressNum * sizeof(hashDataType)), int64_t(curSeqLen), 
+                                 int64_t(param_.hidDimCompressAddNum * sizeof(hashDataType)), 0,
+                                 0, 0);
+                
+                // // 先计算Hamming dist -- 实际hDimTilingNum = 1
+                // if (loop_ping_flag == 0){
+                //     Hamming(resultUB[resultUBOffset + seqLenTiling * param_.seqLenTilingLen], 
+                //             qHashUB[qHashUBOffset], kHashUB[kHashUBOffset], 
+                //             XORUB[XORUBOffset], hammingRightUB[hammingRightUBOffset], 
+                //             hammingCastUB[hammingCastUBOffset], hammingLastRow1UB,
+                //             hammingSumUB[hammingSumUBOffset], hammingCum1UB, 
+                //             hammingReduceUB[hammingReduceUBOffset], 
+                //             // hammingResultUB[hammingResultUBOffset],
+                //             scalarUB, reduceSumWorkSpaceUB, tmpWorkSpaceUB,
+                //             param_.groupNum, param_.hidDimCompressPadNum, curSeqLen, seqLenTiling);
+                //     PipeBarrier<PIPE_V>();
+                // }
+                // else{
+                //     Hamming(resultUB[resultUBOffset + seqLenTiling * param_.seqLenTilingLen], 
+                //             qHashUB[qHashUBOffset], kHashUB[kHashUBOffset], 
+                //             XORUB[XORUBOffset], hammingRightUB[hammingRightUBOffset], 
+                //             hammingCastUB[hammingCastUBOffset], hammingLastRow2UB,
+                //             hammingSumUB[hammingSumUBOffset], hammingCum2UB, 
+                //             hammingReduceUB[hammingReduceUBOffset], 
+                //             // hammingResultUB[hammingResultUBOffset],
+                //             scalarUB, reduceSumWorkSpaceUB, tmpWorkSpaceUB,
+                //             param_.groupNum, param_.hidDimCompressPadNum, curSeqLen, seqLenTiling);
+                //     PipeBarrier<PIPE_V>();
+                // }
+            }
+
+            // // 此处有尾块问题，需要mask -- 引入tail
+            // ChunkCompress(resultChunkUB[resultChunkUBOffset], 
+            //               resultUB[resultUBOffset],
+            //               param_.chunkSize,
+            //               param_.chunkMode); // [1, chunkNum]
+            // PipeBarrier<PIPE_V>();
+
+            // TopKCustom(topKChunkUB[topKChunkUBOffset], hammingChunkUB[hammingChunkUBOffset], indexChunkUB[indexChunkUBOffset]); // [1, compressTopK]
+            // PipeBarrier<PIPE_V>();
+
+            // // get output GM offset
+            // DataCopyOutCustom(indexGm[indexGMOffset], indexChunkUB,
+            //                param_.indexCoreOffsetBlock, 1); // TBD
+
+            loop_ping_flag = 1 - loop_ping_flag;
+            PipeBarrier<PIPE_V>();
+        }
+        PipeBarrier<PIPE_ALL>();
+    }
+
+private:
+
+    TilingParam param_;
+
+    GlobalTensor<hashDataType> qHashGm;
+    GlobalTensor<hashDataType> kHashGm;
+    GlobalTensor<indexDataType> indexGm;
+
+    GlobalTensor<hashDataType> scalarGm; // scalar for hamming dist
+};
+
+extern "C" __global__ __aicore__ void hamming_dist_top_k_custom(GM_ADDR qHash, GM_ADDR kHash, GM_ADDR index, HammingTilingData tiling)
+{
+    const int32_t bufferNum = tiling.bufferNum;
+    assert(bufferNum <= 2);
+    // PRINTF("bufferNum: %d\n", bufferNum);
+
+    KernelHammingDistTopK<int16_t, half, int32_t> op;
+    op.Init(qHash, kHash, index, tiling);
+    op.Process();
+}

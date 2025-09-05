@@ -1,0 +1,8 @@
+Op Name=hamming_dist_top_k_custom_0
+Block Dim=1
+Run Soc Version=Ascend910B3
+Device Id=2
+Pid=2366325
+Current Freq=1800
+Rated Freq=1800
+Is MC2=0

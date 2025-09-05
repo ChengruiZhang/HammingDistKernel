@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

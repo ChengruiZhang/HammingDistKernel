@@ -62,4 +62,7 @@ if __name__ == "__main__":
 
     input_x.tofile("./input/input_qhash.bin")
     input_y.tofile("./input/input_khash.bin")
+
+    print(input_x)
+    print(input_y)
     # gen_golden_data_simple(batchSize, seqLen, HeadQ, HeadK, hidDim, topK)

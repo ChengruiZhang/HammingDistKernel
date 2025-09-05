@@ -1,7 +1,0 @@
-{
-	"InstallScripts" : 
-	[
-		"/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-build/cmake_install.cmake"
-	],
-	"Parallel" : false
-}

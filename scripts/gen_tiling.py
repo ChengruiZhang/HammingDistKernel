@@ -132,7 +132,7 @@ if __name__ == "__main__":
     hidDimCompressPadNum = (hidDimCompressNum + dataBlockSize - 1) // dataBlockSize * dataBlockSize
     hidDimCompressAddNum = hidDimCompressPadNum - hidDimCompressNum
 
-    totalNum = batchSize * groupNum
+    totalNum = batchSize * HeadK
     scalarSize = 64 * groupNum
 
     qHashCoreOffset = groupNum * hidDimCompressNum
@@ -143,9 +143,11 @@ if __name__ == "__main__":
     kHashCoreOffsetBlock = kHashCoreOffset // dataBlockSize
     indexCoreOffsetBlock = indexCoreOffset // dataBlockSize
 
-    seqLenTilingLen = 1024
-    seqLenTilingNum = seqLenPad // seqLenTilingLen
-    seqLenTilingTailLen = seqLenPad % seqLenTilingLen
+    seqLenTilingLen = 512
+    seqLenTilingNum = (seqLenPad + seqLenTilingLen - 1) // seqLenTilingLen
+    seqLenTilingTailLen = seqLenTilingLen 
+    if seqLen % seqLenTilingLen != 0:
+        seqLenTilingTailLen = seqLen % seqLenTilingLen
     seqLenBlockNum = (seqLenTilingLen + dataBlockSize - 1) // dataBlockSize
 
     qHashTilingSize = groupNum * hidDimCompressPadNum * bufferNum
@@ -181,7 +183,7 @@ if __name__ == "__main__":
     # TBD
     chunkRepeat = (seqLen + chunkSize - 1) // chunkSize
     chunkTailMask = (1 << (seqLen % chunkSize)) - 1 if (seqLen % chunkSize) != 0 else 0xFFFF
-    chunkMode = 0 if (seqLen % chunkSize) == 0 else 1
+    chunkMode = 0
     chunkTopKNum = (topK + chunkSize - 1) // chunkSize
 
     indexChunkSize = seqLenPad // chunkSize * bufferNum

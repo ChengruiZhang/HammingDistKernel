@@ -1,0 +1,2 @@
+Op Name,Op Type,Task Duration(us),Block Dim,Mix Block Dim,Device Id,Pid,Current Freq,Rated Freq,
+hamming_dist_top_k_custom_0,vector,152.300003,1,NA,2,2366325,1800,1800,

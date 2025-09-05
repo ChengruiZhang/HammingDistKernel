@@ -11,8 +11,8 @@ include(${ASCENDC_CMAKE_DIR}/ascendc.cmake)
 ascendc_library(ascendc_kernels_${RUN_MODE} SHARED ${KERNEL_FILES})
 
 target_compile_options(ascendc_kernels_${RUN_MODE} PRIVATE
- -O0
- -g
+ -O2
+#  -g
  -std=c++17
 )
 

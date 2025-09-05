@@ -1,7 +1,0 @@
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/host_bisheng_obj.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/edit_cache.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/rebuild_cache.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/list_install_components.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/install.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/install/local.dir
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_host-prefix/src/ascendc_kernels_npu_host-build/CMakeFiles/install/strip.dir

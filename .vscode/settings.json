@@ -1,0 +1,7 @@
+{
+    "files.associations": {
+        "*.tops": "cpp",
+        "*.cu": "cuda-cpp",
+        "functional": "cpp"
+    }
+}

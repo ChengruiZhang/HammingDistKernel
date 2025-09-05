@@ -58,7 +58,7 @@ struct HammingTilingData {
     uint32_t tmpWorkSpaceSize; // 临时工作空间，用于存放kHash的复制值，保持和qHash一致的shape，32 Byte对齐 -- G * hidDimCompressPadNum * bfn
 
     // XOR rightshift 这些都是对T_SeqLen中的一个做的
-    uint32_t reduceSumWorkSpaceSize = 512; // reduceSum的工作空间，32 Byte对齐
+    uint32_t reduceSumWorkSpaceSize = 1024; // reduceSum的工作空间，32 Byte对齐
 
     uint32_t hammingXORTilingSize; // G * hidDimCompressPadNum * bfn
     uint32_t hammingXORSingleTilingSize; // G * hidDimCompressPadNum

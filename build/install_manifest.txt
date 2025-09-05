@@ -1,4 +1,0 @@
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/out/lib/libascendc_kernels_npu.so
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/out/include/ascendc_kernels_npu/aclrtlaunch_hamming_dist_top_k_custom.h
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/out/include/ascendc_kernels_npu/aclrtlaunch_triple_chevrons_func.h
-/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/out/bin/ascendc_kernels_bbit
