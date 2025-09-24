@@ -1,0 +1,43 @@
+{
+	"sources" : 
+	[
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_precompile"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_precompile.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/CMakeFiles/ascendc_kernels_npu_precompile-complete.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-build.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-configure.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-download.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-install.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-mkdir.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-patch.rule"
+		},
+		{
+			"file" : "/home/westhpc/RayCode/hamming_dist_top_k/HammingDistKernel/build/ascendc_kernels_npu_precompile-prefix/src/ascendc_kernels_npu_precompile-stamp/ascendc_kernels_npu_precompile-update.rule"
+		}
+	],
+	"target" : 
+	{
+		"labels" : 
+		[
+			"ascendc_kernels_npu_precompile"
+		],
+		"name" : "ascendc_kernels_npu_precompile"
+	}
+}

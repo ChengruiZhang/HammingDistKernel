@@ -32,8 +32,7 @@ int32_t main(int32_t argc, char *argv[])
 {
     uint32_t batchSize, seqLen, headQ, headK, hidDim, topK, chunkSize;
 
-    // fprintf(1);
-    std::cout << 1 << std::endl;
+    std::cout << "Kernel Start" << std::endl;
     // parse args
     batchSize = std::stoi(argv[1]);
     seqLen = std::stoi(argv[2]);
@@ -58,7 +57,6 @@ int32_t main(int32_t argc, char *argv[])
     // 待定
     constexpr uint32_t BLOCK_DIM = 1;
     uint8_t *tiling = nullptr;
-    // constexpr uint32_t DATA_TYPE_SIZE[] = {2, 2, 4, 1, 2, 4};
     size_t tilingSize = 60 * sizeof(uint32_t);
 
 #ifdef ASCENDC_CPU_DEBUG
@@ -77,15 +75,6 @@ int32_t main(int32_t argc, char *argv[])
     CHECK_ACL(aclrtMallocHost((void **)(&tiling), tilingSize));
     ReadFile("./input/input_tiling.bin", tilingSize, tiling, tilingSize);
 #endif
-
-    // GenerateTilingData(tiling, BLOCK_DIM);
-    // uint32_t dataTypeSize = DATA_TYPE_SIZE[reinterpret_cast<HammingTilingData *>(tiling)->dataType];
-    // uint32_t xLen = reinterpret_cast<HammingTilingData *>(tiling)->xLen;
-    // uint32_t yLen = reinterpret_cast<HammingTilingData *>(tiling)->yLen;
-    // uint32_t totalLength = (xLen > yLen)? xLen : yLen;
-    // size_t qHashFileSize = xLen * dataTypeSize;
-    // size_t kHashFileSize = yLen * dataTypeSize;
-    // size_t indexFileSize = totalLength * dataTypeSize;
 
 #ifdef ASCENDC_CPU_DEBUG
     uint8_t *x = (uint8_t *)AscendC::GmAlloc(qHashFileSize);
@@ -124,13 +113,6 @@ int32_t main(int32_t argc, char *argv[])
         reinterpret_cast<HammingTilingData *>(tiling));
     CHECK_ACL(aclrtSynchronizeStream(stream));
 
-    // std::cout << "Op time: " << average_time_event << " us" << std::endl;
-    //     std::cout << "Peak Flops (No GM bound): " << PEAK_CVEC_FLOPS << " TFlops" << std::endl;
-    //     std::cout << "Peak Flops (GM bound): " << peak_gm_bound << " TFlops" << std::endl;
-    //     std::cout << "Perf: " << tflops << " / " << peak_gm_bound << " TFlops" << std::endl;
-    //     std::cout << "Peak Util (No GM bound): " << std::setprecision(4) << util << "%" << std::endl;
-    //     std::cout << "Peak Util (GM bound): " << std::setprecision(4) << util_gm_bound << "%" << std::endl;
-
     CHECK_ACL(aclrtMemcpy(topKHost, indexFileSize, topKDevice, indexFileSize, ACL_MEMCPY_DEVICE_TO_HOST));
     WriteFile("./output/output_topk_idx.bin", topKHost, indexFileSize);
 
@@ -145,6 +127,8 @@ int32_t main(int32_t argc, char *argv[])
     CHECK_ACL(aclrtDestroyStream(stream));
     CHECK_ACL(aclrtResetDevice(deviceId));
     CHECK_ACL(aclFinalize());
+    std::cout << "Kernel Complete" << std::endl;
+
 #endif
     return 0;
 }

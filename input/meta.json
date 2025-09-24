@@ -1,0 +1,48 @@
+{
+  "qhash_packed": {
+    "shape": [
+      1,
+      1,
+      8,
+      16
+    ],
+    "dtype": "uint8"
+  },
+  "khash_packed": {
+    "shape": [
+      1,
+      4096,
+      1,
+      16
+    ],
+    "dtype": "uint8"
+  },
+  "hid_dim": 128,
+  "group": 8,
+  "seqLen": 4096,
+  "headK": 1,
+  "headQ": 8,
+  "chunk_size": 16,
+  "chunk_reduce": "max",
+  "take_largest": true,
+  "topK": 4,
+  "score_shape": [
+    1,
+    1,
+    1,
+    4096
+  ],
+  "score_chunk_shape": [
+    1,
+    1,
+    1,
+    256
+  ],
+  "topk_index_shape": [
+    1,
+    1,
+    1,
+    4
+  ],
+  "bitorder": "big"
+}

@@ -57,8 +57,6 @@ public:
         pipe.InitBuffer(topKChunkUB, 2, sizeof(indexDataType) * tiling.topKChunkSingleSize);
         // pipe.InitBuffer(topKValueChunkUB, 2, sizeof(computeDataType) * tiling.topKChunkSingleSize);
 
-        
-
         param_.batchSize              = tiling.batchSize;
         param_.seqLen                 = tiling.seqLen;
         param_.seqLenPad              = tiling.seqLenPad;
@@ -131,7 +129,6 @@ public:
         param_.topKChunkSize           = tiling.topKChunkSize;
         param_.topKChunkSingleSize     = tiling.topKChunkSingleSize;
 
-
     }
 
     /* @brief: 搬入数据
@@ -150,7 +147,8 @@ public:
         dataCopyExtParams.blockLen = blockLen;
         dataCopyExtParams.dstStride = dstStride;
         dataCopyExtParams.srcStride = srcStride;
-
+        
+        // 此处每次都需要padding，效率极低
         DataCopyPadExtParams<T> dataCopyPadExtParams;
         dataCopyPadExtParams.isPad = true;
         dataCopyPadExtParams.rightPadding = 0; // 0 for hashDataType
@@ -172,16 +170,6 @@ public:
         dataCopyExtParams.blockLen = blockLen;
 
         DataCopyPad(dst, src, dataCopyExtParams);
-    }
-
-
-    /* @brief: 对[M, N]的向量进行除法
-    * input: srcTensor, M, N, scalar, axis
-    * output: dstTensor
-    */
-    template <typename T = uint16_t>
-    __aicore__ inline void TensorDiv(){
-        // 扩充
     }
 
     // template <typename T = int16_t>
@@ -260,18 +248,18 @@ public:
             
             // AscendC::PRINTF("%d\n", i);
 
-             for (size_t j = 0; j < group; j++)
-             {
-                 DataCopy(tmp[j * param_.hidDimCompressPadNum], kHash[i * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
-             }
-             PipeBarrier<PIPE_V>();
+            for (size_t j = 0; j < group; j++)
+            {
+                DataCopy(tmp[j * param_.hidDimCompressPadNum], kHash[i * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
+            }
+            PipeBarrier<PIPE_V>();
             // if(GetBlockIdx() == 0 && i == 0){
             //     AscendC::PRINTF("copy khash\n");
             //     AscendC::DumpTensor(tmp, 1, 128);
             // }
             
-             Xor(XOR, qHash, tmp, param_.hidDimCompressPadNum * group);
-             PipeBarrier<PIPE_V>();
+            Xor(XOR, qHash, tmp, param_.hidDimCompressPadNum * group);
+            PipeBarrier<PIPE_V>();
             // if(GetBlockIdx() == 0 && i == 0){
             //     AscendC::PRINTF("XOR\n");
             //     AscendC::DumpTensor(XOR, 1, 128);
@@ -286,12 +274,12 @@ public:
             Sub(XOR, XOR, rightShift, group * 16); // XOR = x - ((x >> 1) & 0x5555555555555555ULL)
             PipeBarrier<PIPE_V>();
             
-            // // if(GetBlockIdx() == 0 && i == 0){
-            // //     AscendC::PRINTF("2 bit\n");
-            // //     AscendC::DumpTensor(XOR, 1, 128);
-            // // }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("2 bit\n");
+            //     AscendC::DumpTensor(XOR, 1, 128);
+            // }
 
-            // // x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL); // 每4位计数
+            // x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL); // 每4位计数
             ShiftRight(rightShift, XOR, (hashDataType)2, group * 16);
             PipeBarrier<PIPE_V>();
             And(rightShift, rightShift, scalar[16 * group], group * 16); // scalar[16-24] = 0x3333333333333333ULL
@@ -301,12 +289,12 @@ public:
             Add(XOR, XOR, rightShift, group * 16); // XOR = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL)
             PipeBarrier<PIPE_V>();
 
-            // // if(GetBlockIdx() == 0 && i == 0){
-            // //     AscendC::PRINTF("4 bit\n");
-            // //     AscendC::DumpTensor(XOR, 1, 128);
-            // // }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("4 bit\n");
+            //     AscendC::DumpTensor(XOR, 1, 128);
+            // }
 
-            // // x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;               // 每8位计数
+            // x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;               // 每8位计数
             ShiftRight(rightShift, XOR, (hashDataType)4, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
@@ -314,32 +302,32 @@ public:
             And(XOR, XOR, scalar[32 * group], group * 16); // scalar[32-40] = 0x0F0F0F0F0F0F0F0ULL
             PipeBarrier<PIPE_V>();
 
-            // // if(GetBlockIdx() == 0 && i == 0){
-            // //     AscendC::PRINTF("8 bit\n");
-            // //     AscendC::DumpTensor(XOR, 1, 128);
-            // // }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("8 bit\n");
+            //     AscendC::DumpTensor(XOR, 1, 128);
+            // }
 
-            // // x = x + (x >> 8);                                        // 每16位
+            // x = x + (x >> 8);                                        // 每16位
             ShiftRight(rightShift, XOR, (hashDataType)8, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
 
-            // // if(GetBlockIdx() == 0 && i == 0){
-            // //     AscendC::PRINTF("16 bit\n");
-            // //     AscendC::DumpTensor(XOR, 1, 128);
-            // // }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("16 bit\n");
+            //     AscendC::DumpTensor(XOR, 1, 128);
+            // }
 
-            // // x = x & 0x1F;                             // 最终结果
+            // x = x & 0x1F;                             // 最终结果
             And(XOR, XOR, scalar[48 * group], group * 16);       // scalar[48-56] = 0x000000000000007F
             PipeBarrier<PIPE_V>();
 
-            // // if(GetBlockIdx() == 0 && i == 0){
-            // //     AscendC::PRINTF("final\n");
-            // //     AscendC::DumpTensor(XOR, 1, 128);
-            // // }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("final\n");
+            //     AscendC::DumpTensor(XOR, 1, 128);
+            // }
 
-            // // 计算完一个SeqLen的Hamming，接下来进行Cast -- sync error
+            // 计算完一个SeqLen的Hamming，接下来进行Cast -- sync error
             AscendC::RoundMode roundMode = AscendC::RoundMode::CAST_ROUND;
             Cast(hammingCast, XOR, roundMode, group * 16); // hammingLastRow [1, 16] -- 16是DATABLOCKLEN
             PipeBarrier<PIPE_V>();
@@ -349,7 +337,7 @@ public:
             //     AscendC::DumpTensor(hammingCast, 1, 128);
             // }
 
-            // // 计算完一个SeqLen的Hamming，接下来进行CumSum
+            // 计算完一个SeqLen的Hamming，接下来进行CumSum
             CumSum<computeDataType, cumSumConfig>(hammingCum, hammingLastRow, hammingCast, cumSumInfo);      // hammingSum [T_S, 16] -- 16是DATABLOCKLEN
             PipeBarrier<PIPE_V>();
             
@@ -375,7 +363,7 @@ public:
         //     AscendC::DumpTensor(hammingSum, 1, 128);
         // }
 
-        // // 算完cumsum后，需要对sum进行求reducesum [T_seqLen, DATABLOCKLEN] -> [T_seqLen, 1] -- TBD -- 当前假定seqLen都是整数倍
+        // 算完cumsum后，需要对sum进行求reducesum [T_seqLen, DATABLOCKLEN] -> [T_seqLen, 1] -- TBD -- 当前假定seqLen都是整数倍
         BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, (seqLen * 16 + 128 - 1) / 128, 128, 1, 1, 8);
         PipeBarrier<PIPE_V>();
         // // 尾块
@@ -482,7 +470,7 @@ public:
         AscendC::LocalTensor<computeDataType> inTensor = resultUB.DeQue<computeDataType>();
         AscendC::LocalTensor<computeDataType> outTensor = resultChunkUB.DeQue<computeDataType>();
         if (chunkMode == 0) { // BlockMax
-            // ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
+            ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
         }
         resultChunkUB.EnQue<computeDataType>(outTensor);
         resultUB.FreeTensor(inTensor);
@@ -706,13 +694,11 @@ public:
             // PipeBarrier<PIPE_ALL>();
         }
 
-
         // Free Tensor;
         // AscendC::LocalTensor<computeDataType> result = resultUB.DeQue<computeDataType>();
         resultUB.FreeTensor(result);
         AscendC::LocalTensor<hashDataType> scalarLocal = scalarUB.DeQue<hashDataType>();
         scalarUB.FreeTensor(scalarLocal);
-
 
         // *****************  Old  *****************
 
