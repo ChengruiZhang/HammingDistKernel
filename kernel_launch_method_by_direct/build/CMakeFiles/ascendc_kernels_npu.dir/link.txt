@@ -1,0 +1,2 @@
+/usr/bin/ar qc lib/libascendc_kernels_npu.a CMakeFiles/ascendc_kernels_npu_host_stub_obj.dir/auto_gen/ascendc_kernels_npu/host_stub.cpp.o elf_tool.c.o ascendc_runtime.cpp.o
+/usr/bin/ranlib lib/libascendc_kernels_npu.a
