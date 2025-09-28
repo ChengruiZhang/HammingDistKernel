@@ -19,16 +19,7 @@ using namespace AscendC;
 
 
 namespace MyCustomKernel {
-// struct VecTiling {
 
-//     uint32_t k;
-//     uint32_t outter;
-//     uint32_t inner;
-//     uint32_t n;
-//     uint32_t minsize;
-//     bool isLargest;
-//     TopkTiling topKTilingData;
-// };
 struct VecTiling {
     // 来自 TopkCustom
     uint32_t k;
@@ -213,13 +204,6 @@ public:
         static constexpr AscendC::CumSumConfig cumSumConfig{false, false, true};
         const AscendC::CumSumInfo cumSumInfo{group, 16};
 
-        // if(GetBlockIdx() == 0){
-        //     AscendC::PRINTF("qHash\n");
-        //     AscendC::DumpTensor(qHash, 1, 128);
-        //     AscendC::PRINTF("kHash\n");
-        //     AscendC::DumpTensor(kHash, 1, 128);
-        // }
-
         // TBD 由于后续需要做转置，因此seqlen需要输入进hamming中，并且转置后做一次掩码
         // 每次针对一个seqlen进行操作
         for (uint32_t i = 0; i < seqLen; i++){
@@ -229,10 +213,6 @@ public:
                 DataCopy(tmp[j * param_.hidDimCompressPadNum], kHash[i * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
             }
             PipeBarrier<PIPE_V>();
-            // if(GetBlockIdx() == 0 && i == 0){
-            //     AscendC::PRINTF("copy khash\n");
-            //     AscendC::DumpTensor(tmp, 1, 128);
-            // }
             
             Xor(XOR, qHash, tmp, param_.hidDimCompressPadNum * group);
             PipeBarrier<PIPE_V>();
@@ -352,7 +332,6 @@ public:
             dstOffset += (tailRepeat - 1) * 8; 
             BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], 1, param_.chunkTailMask, 1, 1, 8); // 8: srcRepStride
         }
-        // BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, (seqLen + 8 - 1) / 8, 128, 8, 8, 8);
     }
 
     // 此处可通过duplicate优化
@@ -428,10 +407,7 @@ public:
 
         AscendC::LocalTensor<computeDataType> inTensor = resultUB.DeQue<computeDataType>();
         AscendC::LocalTensor<computeDataType> outTensor = resultChunkUB.DeQue<computeDataType>();
-        // if (true){
-        //     AscendC::PRINTF("result\n");
-        //     AscendC::DumpTensor(inTensor, 1, param_.indexChunkSize);
-        // }
+
         if (chunkMode == 0) { // BlockMax
             ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
         }
@@ -482,7 +458,7 @@ public:
         kHashGm.SetGlobalBuffer(reinterpret_cast<__gm__ hashDataType*>(kHash));
         indexGm.SetGlobalBuffer(reinterpret_cast<__gm__ indexDataType*>(topKIndex));
 
-        AscendC::PRINTF("param_.indexChunkSingleSize: %d\n", param_.indexChunkSingleSize);
+        // AscendC::PRINTF("param_.indexChunkSingleSize: %d\n", param_.indexChunkSingleSize);
         
         // VECIN
         pipe.InitBuffer(qHashUB, 2, sizeof(hashDataType) * tilingData.qHashSingleTilingSize);
@@ -512,11 +488,6 @@ public:
         InitScalar<hashDataType>();
         AscendC::LocalTensor<computeDataType> result = resultUB.AllocTensor<computeDataType>();
         resultUB.EnQue<computeDataType>(result);
-        
-        // Alloc and EnQue Index
-        // AscendC::LocalTensor<indexDataType> indexChunk = indexChunkUB.AllocTensor<indexDataType>();
-        // ArithProgression<indexDataType>(indexChunk, static_cast<indexDataType>(0), static_cast<indexDataType>(1), static_cast<indexDataType>(param_.indexChunkSize));
-        // PipeBarrier<PIPE_V>();
         
         AscendC::LocalTensor<computeDataType> resultChunk;
         AscendC::LocalTensor<computeDataType> topKValueChunk;
@@ -549,7 +520,7 @@ public:
                 int64_t(param_.hidDimCompressAddNum), 
                 0, 0, 0);
 
-            AscendC::PRINTF("%d\n", param_.seqLenTilingNum);
+            // AscendC::PRINTF("%d\n", param_.seqLenTilingNum);
 
             for (uint32_t curTile = 0; curTile < param_.seqLenTilingNum; curTile++){
                 
@@ -573,23 +544,17 @@ public:
             ChunkCompress(param_.chunkSize, param_.chunkMode);
             PipeBarrier<PIPE_V>();
 
-            if (core_idx == 0){
-                AscendC::PRINTF("resultChunk\n");
-                AscendC::DumpTensor(resultChunk, 1, param_.indexChunkSize);
-                AscendC::PRINTF("k:%d, outter: %d, inner: %d, n: %d\n", k, outter, inner, n);
-                // AscendC::PRINTF("topKTilingData.allDataSize :%d, innerDataSize : %d \n", param_.topKTilingData.allDataSize, param_.topKTilingData.innerDataSize );
-            }
+            // if (core_idx == 0){
+            //     AscendC::PRINTF("resultChunk\n");
+            //     AscendC::DumpTensor(resultChunk, 1, param_.indexChunkSize);
+            //     AscendC::PRINTF("k:%d, outter: %d, inner: %d, n: %d\n", k, outter, inner, n);
+            // }
             
-            TopK<computeDataType, false, false, true>(topKValueChunk, topKChunk, resultChunk, index_tmp, finish_tmp, k, param_.topKTilingData, {static_cast<int32_t>(outter), static_cast<int32_t>(inner), static_cast<int32_t>(n)}, false);
-            PipeBarrier<PIPE_V>();
+            TopK<computeDataType, false, false, false>(topKValueChunk, topKChunk, resultChunk, index_tmp, finish_tmp, k, param_.topKTilingData, {static_cast<int32_t>(outter), static_cast<int32_t>(inner), static_cast<int32_t>(n)}, false);
 
-            if (core_idx == 0){
-                AscendC::PRINTF("topKChunk\n");
-                AscendC::DumpTensor(topKChunk, 1, param_.indexChunkSize);
-            }
+            // AscendC::PRINTF("DataCopy\n");
 
-            AscendC::PRINTF("DataCopy\n");
-            DataCopy(indexGm, topKChunk, k);
+            DataCopy(indexGm, topKChunk, k_pad);
 
             // Free QHash Tensor -- 最后一次deque，清空qHashUB的队列
             AscendC::LocalTensor<hashDataType> qHashLocal = qHashUB.DeQue<hashDataType>();
@@ -614,20 +579,8 @@ public:
 
 
 private:
-    // AscendC::GlobalTensor<hashDataType> srcGlobal1;
-    // AscendC::GlobalTensor<indexDataType> srcGlobal2;
-    // AscendC::GlobalTensor<bool> srcGlobal3;
-    // AscendC::GlobalTensor<hashDataType> dstGlobal1;
-    // AscendC::GlobalTensor<indexDataType> dstGlobal2;
 
     AscendC::TPipe pipe;
-
-    // AscendC::TQue<AscendC::TPosition::VECIN, 1> inQueueX1;
-    // AscendC::TQue<AscendC::TPosition::VECIN, 1> inQueueX2;
-    // AscendC::TQue<AscendC::TPosition::VECIN, 1> inQueueX3;
-
-    // AscendC::TQue<AscendC::TPosition::VECOUT, 1> outQueueY1;
-    // AscendC::TQue<AscendC::TPosition::VECOUT, 1> outQueueY2;
 
     AscendC::TBuf<AscendC::TPosition::VECCALC> tmplocalBuf;
 
@@ -675,7 +628,6 @@ private:
     bool isSmallMode = false;
 
     VecTiling param_;
-    // uint64_t BlockReduceSumMask[2] = {0xFF00FF00FF00FF00, 0xFF00FF00FF00FF00};
     uint64_t BlockReduceSumMask[2] = {0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF};
 
 };
