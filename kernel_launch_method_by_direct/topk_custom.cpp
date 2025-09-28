@@ -29,7 +29,7 @@ extern "C" __global__ __aicore__ void topk_custom(GM_ADDR qHash, GM_ADDR kHash,
         return;
     }
 
-    AscendC::PRINTF("1\n");
+    // AscendC::PRINTF("1\n");
 
     MyCustomKernel::VecTiling tilingData;
     CopyTiling(&tilingData, tiling);
@@ -46,7 +46,7 @@ extern "C" __global__ __aicore__ void topk_custom(GM_ADDR qHash, GM_ADDR kHash,
 // call of kernel function
 void topk_custom_do(uint32_t blockDim, void *l2ctrl, void *stream, uint8_t *qHashDevice, uint8_t *kHashDevice, uint8_t *topKDevice, uint8_t *workspace, uint8_t *tiling)
 {
-    std::cout << "test" << std::endl;
+    // std::cout << "test" << std::endl;
     topk_custom<<<blockDim, l2ctrl, stream>>>(qHashDevice, kHashDevice, topKDevice, workspace, tiling);
 }
 #endif

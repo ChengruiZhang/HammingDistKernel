@@ -27,8 +27,8 @@ struct ascend_kernels {
     uint32_t aiv_type;
     uint32_t aiv_len;
     uint32_t aiv_file_len;
-    uint8_t aiv_buf[390968];
-} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,390968,390968,{0}};
+    uint8_t aiv_buf[318216];
+} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,318216,318216,{0}};
 
 extern "C" {
 uint32_t RegisterAscendBinary(const char *fileBuf, size_t fileSize, uint32_t type, void **handle);
@@ -124,9 +124,6 @@ uint32_t launch_and_profiling_topk_custom(uint64_t func_key, uint32_t blockDim, 
 extern "C" uint32_t aclrtlaunch_topk_custom(uint32_t blockDim, void* stream, void* qHash, void* kHash, void* topK, void* workspace, void* tiling)
 {
     struct {
-    #if defined ASCENDC_DUMP || defined ASCENDC_TIME_STAMP_ON
-            void* __ascendc_dump;
-    #endif
         alignas(((alignof(void*) + 3) >> 2) << 2) void* qHash;
         alignas(((alignof(void*) + 3) >> 2) << 2) void* kHash;
         alignas(((alignof(void*) + 3) >> 2) << 2) void* topK;
@@ -136,10 +133,6 @@ extern "C" uint32_t aclrtlaunch_topk_custom(uint32_t blockDim, void* stream, voi
     } __ascendc_args;
 
     uint32_t __ascendc_ret;
-#if defined ASCENDC_DUMP || defined ASCENDC_TIME_STAMP_ON
-    constexpr uint32_t __ascendc_one_core_dump_size = 1048576;
-    AllocAscendMemDevice(&(__ascendc_args.__ascendc_dump), __ascendc_one_core_dump_size * 75);
-#endif
     constexpr uint32_t __ascendc_overflow_status_size = 8;
     AllocAscendMemDevice(&(__ascendc_args.__ascendc_overflow), __ascendc_overflow_status_size);
     __ascendc_args.qHash = qHash;
@@ -148,13 +141,8 @@ extern "C" uint32_t aclrtlaunch_topk_custom(uint32_t blockDim, void* stream, voi
     __ascendc_args.workspace = workspace;
     __ascendc_args.tiling = tiling;
 
-    const char *__ascendc_name = "topk_custom";
     __ascendc_ret = launch_and_profiling_topk_custom(0, blockDim, stream, (void **)&__ascendc_args, sizeof(__ascendc_args));
     KernelHandleGradUnregister::GetInstance();
-#if defined ASCENDC_DUMP || defined ASCENDC_TIME_STAMP_ON
-    Adx::AdumpPrintWorkSpace(__ascendc_args.__ascendc_dump, __ascendc_one_core_dump_size * 75, stream, __ascendc_name);
-    FreeAscendMemDevice(__ascendc_args.__ascendc_dump);
-#endif
     FreeAscendMemDevice(__ascendc_args.__ascendc_overflow);
     return __ascendc_ret;
 }

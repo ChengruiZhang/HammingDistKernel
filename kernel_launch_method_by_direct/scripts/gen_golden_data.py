@@ -159,7 +159,7 @@ if __name__ == "__main__":
 
     # 随机生成“打包态”的输入：最后一维是 ceil(hidDim/8)
     packD = (hidDim + 15) // 16
-    rng = np.random.default_rng(0)
+    rng = np.random.default_rng(1)
     qhash_packed = rng.integers(0, 128, size=(batchSize, 1, headQ, packD), dtype=np.uint16)
     khash_packed = rng.integers(0, 128, size=(batchSize, seqLen, headK, packD), dtype=np.uint16)
 

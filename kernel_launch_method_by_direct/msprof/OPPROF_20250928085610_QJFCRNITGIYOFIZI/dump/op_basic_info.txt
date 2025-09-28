@@ -1,0 +1,8 @@
+Op Name=topk_custom_0
+Block Dim=1
+Run Soc Version=Ascend910B3
+Device Id=4
+Pid=1304945
+Current Freq=1800
+Rated Freq=1800
+Is MC2=0

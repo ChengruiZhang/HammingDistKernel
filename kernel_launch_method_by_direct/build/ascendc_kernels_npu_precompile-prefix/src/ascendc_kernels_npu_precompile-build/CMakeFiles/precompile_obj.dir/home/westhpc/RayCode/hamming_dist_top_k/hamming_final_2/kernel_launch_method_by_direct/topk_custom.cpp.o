@@ -128175,7 +128175,7 @@ using namespace AscendC;
 
 
 namespace MyCustomKernel {
-# 32 "/home/westhpc/RayCode/hamming_dist_top_k/hamming_final_2/kernel_launch_method_by_direct/../kernel_impl/topk_custom.h"
+
 struct VecTiling {
 
     uint32_t k;
@@ -128325,7 +128325,7 @@ public:
 
         DataCopyPad(dst, src, dataCopyExtParams);
     }
-# 191 "/home/westhpc/RayCode/hamming_dist_top_k/hamming_final_2/kernel_launch_method_by_direct/../kernel_impl/topk_custom.h"
+# 182 "/home/westhpc/RayCode/hamming_dist_top_k/hamming_final_2/kernel_launch_method_by_direct/../kernel_impl/topk_custom.h"
     [aicore] inline void Hamming(uint32_t group, uint32_t HDim, uint32_t seqLen, uint32_t curTile){
 
 
@@ -128350,7 +128350,9 @@ public:
 
         static constexpr AscendC::CumSumConfig cumSumConfig{false, false, true};
         const AscendC::CumSumInfo cumSumInfo{group, 16};
-# 225 "/home/westhpc/RayCode/hamming_dist_top_k/hamming_final_2/kernel_launch_method_by_direct/../kernel_impl/topk_custom.h"
+
+
+
         for (uint32_t i = 0; i < seqLen; i++){
 
             for (size_t j = 0; j < group; j++)
@@ -128358,10 +128360,6 @@ public:
                 DataCopy(tmp[j * param_.hidDimCompressPadNum], kHash[i * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
             }
             PipeBarrier<PIPE_V>();
-
-
-
-
 
             Xor(XOR, qHash, tmp, param_.hidDimCompressPadNum * group);
             PipeBarrier<PIPE_V>();
@@ -128481,7 +128479,6 @@ public:
             dstOffset += (tailRepeat - 1) * 8;
             BlockReduceMax<computeDataType>(outTensor[dstOffset], inTensor[srcOffset], 1, param_.chunkTailMask, 1, 1, 8);
         }
-
     }
 
 
@@ -128558,9 +128555,6 @@ public:
         AscendC::LocalTensor<computeDataType> inTensor = resultUB.DeQue<computeDataType>();
         AscendC::LocalTensor<computeDataType> outTensor = resultChunkUB.DeQue<computeDataType>();
 
-
-
-
         if (chunkMode == 0) {
             ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
         }
@@ -128611,7 +128605,7 @@ public:
         kHashGm.SetGlobalBuffer(reinterpret_cast<__attribute__((cce_global)) hashDataType*>(kHash));
         indexGm.SetGlobalBuffer(reinterpret_cast<__attribute__((cce_global)) indexDataType*>(topKIndex));
 
-        AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
+
 
 
         pipe.InitBuffer(qHashUB, 2, sizeof(hashDataType) * tilingData.qHashSingleTilingSize);
@@ -128641,11 +128635,6 @@ public:
         InitScalar<hashDataType>();
         AscendC::LocalTensor<computeDataType> result = resultUB.AllocTensor<computeDataType>();
         resultUB.EnQue<computeDataType>(result);
-
-
-
-
-
 
         AscendC::LocalTensor<computeDataType> resultChunk;
         AscendC::LocalTensor<computeDataType> topKValueChunk;
@@ -128678,7 +128667,7 @@ public:
                 int64_t(param_.hidDimCompressAddNum),
                 0, 0, 0);
 
-            AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
+
 
             for (uint32_t curTile = 0; curTile < param_.seqLenTilingNum; curTile++){
 
@@ -128702,23 +128691,17 @@ public:
             ChunkCompress(param_.chunkSize, param_.chunkMode);
             PipeBarrier<PIPE_V>();
 
-            if (core_idx == 0){
-                AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
-                AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
-                AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
 
-            }
 
-            TopK<computeDataType, false, false, true>(topKValueChunk, topKChunk, resultChunk, index_tmp, finish_tmp, k, param_.topKTilingData, {static_cast<int32_t>(outter), static_cast<int32_t>(inner), static_cast<int32_t>(n)}, false);
-            PipeBarrier<PIPE_V>();
 
-            if (core_idx == 0){
-                AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
-                AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
-            }
 
-            AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
-            DataCopy(indexGm, topKChunk, k);
+
+
+            TopK<computeDataType, false, false, false>(topKValueChunk, topKChunk, resultChunk, index_tmp, finish_tmp, k, param_.topKTilingData, {static_cast<int32_t>(outter), static_cast<int32_t>(inner), static_cast<int32_t>(n)}, false);
+
+
+
+            DataCopy(indexGm, topKChunk, k_pad);
 
 
             AscendC::LocalTensor<hashDataType> qHashLocal = qHashUB.DeQue<hashDataType>();
@@ -128744,13 +128727,8 @@ public:
 
 private:
 
-
-
-
-
-
     AscendC::TPipe pipe;
-# 632 "/home/westhpc/RayCode/hamming_dist_top_k/hamming_final_2/kernel_launch_method_by_direct/../kernel_impl/topk_custom.h"
+
     AscendC::TBuf<AscendC::TPosition::VECCALC> tmplocalBuf;
 
     AscendC::GlobalTensor<hashDataType> qHashGm;
@@ -128797,7 +128775,6 @@ private:
     bool isSmallMode = false;
 
     VecTiling param_;
-
     uint64_t BlockReduceSumMask[2] = {0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF};
 
 };
@@ -128823,7 +128800,7 @@ extern "C" __attribute__((cce_kernel)) [aicore] void topk_custom(__attribute__((
         return;
     }
 
-    AscendC::do { auto __enable_feature_for_compile_printf = 1;; auto __enable_feature_for_compile_printfBufSize = 1048576;; } while (0);
+
 
     MyCustomKernel::VecTiling tilingData;
     CopyTiling(&tilingData, tiling);
@@ -128840,6 +128817,6 @@ extern "C" __attribute__((cce_kernel)) [aicore] void topk_custom(__attribute__((
 
 void topk_custom_do(uint32_t blockDim, void *l2ctrl, void *stream, uint8_t *qHashDevice, uint8_t *kHashDevice, uint8_t *topKDevice, uint8_t *workspace, uint8_t *tiling)
 {
-    std::cout << "test" << std::endl;
+
     topk_custom<<<blockDim, l2ctrl, stream>>>(qHashDevice, kHashDevice, topKDevice, workspace, tiling);
 }

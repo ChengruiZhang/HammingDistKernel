@@ -47,8 +47,8 @@ uint8_t* GenerateTiling(uint32_t batchSize,
     uint32_t chunkSize = 16;
     uint32_t k = topK;
     uint32_t outter = 1;
-    uint32_t inner = (seqLen + chunkSize - 1) / chunkSize * chunkSize; // 向上取整到chunkSize的整数倍
-    uint32_t n = inner; 
+    uint32_t inner = (seqLen + chunkSize - 1) / chunkSize; // 向上取整到chunkSize的整数倍
+    uint32_t n = (inner + 31) / 32 * 32; // 向上取整到32的整数倍
     bool isLargest = true;
 
     platform_ascendc::PlatformAscendC* ascendcPlatform;

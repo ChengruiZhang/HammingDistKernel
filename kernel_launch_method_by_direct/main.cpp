@@ -131,11 +131,11 @@ int32_t main(int32_t argc, char *argv[])
     // ReadFile("../input/input_srcGmIndex.bin", inputSize_srcGmIndex, srcGmIndexHost, inputSize_srcGmIndex);
     // ReadFile("../input/input_finishGm.bin", inputSize_finishGm, finishGmHost, inputSize_finishGm);
 
-    std::cout << "test 1 " << std::endl;
+    // std::cout << "test 1 " << std::endl;
     CHECK_ACL(aclrtMemcpy(workspaceDevice, workspaceSize, workspaceHost, workspaceSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(tilingDevice, tilingFileSize, GenerateTiling(batchSize, seqLen, headQ, headK, hidDim, topK, bufferNum, socVersion),
         tilingFileSize, ACL_MEMCPY_HOST_TO_DEVICE));
-    std::cout << "test 2 " << std::endl;
+    // std::cout << "test 2 " << std::endl;
 
     // CHECK_ACL(aclrtMemcpy(srcGmValueDevice, inputSize_srcGmValue, srcGmValueHost, inputSize_srcGmValue, 
     //     ACL_MEMCPY_HOST_TO_DEVICE));
@@ -147,7 +147,7 @@ int32_t main(int32_t argc, char *argv[])
     CHECK_ACL(aclrtMemcpy(qHashDevice, qHashFileSize, qHashHost, qHashFileSize, ACL_MEMCPY_HOST_TO_DEVICE));
     CHECK_ACL(aclrtMemcpy(kHashDevice, kHashFileSize, kHashHost, kHashFileSize, ACL_MEMCPY_HOST_TO_DEVICE));
     
-    std::cout << "test 3 " << std::endl;
+    // std::cout << "test 3 " << std::endl;
     topk_custom_do(blockDim, nullptr, stream, qHashDevice, kHashDevice, topKDevice, workspaceDevice, tilingDevice);
 
     CHECK_ACL(aclrtSynchronizeStream(stream));

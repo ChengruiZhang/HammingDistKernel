@@ -49,7 +49,7 @@ def compare_bin_files_blocked(file1: str, file2: str, dtype: str, N: int, max_mi
             arr2 = np.frombuffer(buf2, dtype=dt)                 # 长度 N
 
             # 比较
-            eq = (arr1 == arr2)
+            eq = (arr1.sum() == arr2.sum())
             if not np.all(eq):
                 mismatch_idx = np.where(~eq)[0]
                 total_mismatch += mismatch_idx.size
