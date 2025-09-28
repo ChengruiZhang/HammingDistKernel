@@ -4,6 +4,7 @@
 本算子仅作为demo验证，在8.3.RC1环境下运行
 
 ```
+  cd kernel_launch_method_by_direct
   bash run.sh # 编译
   bash test.sh # 运行
 ```
