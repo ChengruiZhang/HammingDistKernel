@@ -27,8 +27,8 @@ struct ascend_kernels {
     uint32_t aiv_type;
     uint32_t aiv_len;
     uint32_t aiv_file_len;
-    uint8_t aiv_buf[399912];
-} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,399912,399912,{0}};
+    uint8_t aiv_buf[390968];
+} __ascend_kernel_ascend910b3_ascendc_kernels_npu __attribute__ ((section (".ascend.kernel.ascend910b3.ascendc_kernels_npu"))) = {1,1,1,390968,390968,{0}};
 
 extern "C" {
 uint32_t RegisterAscendBinary(const char *fileBuf, size_t fileSize, uint32_t type, void **handle);

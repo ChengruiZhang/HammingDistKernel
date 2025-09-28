@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source ~/Ascend/ascend-toolkit/set_env.sh
+
 SHORT=r:,v:,
 LONG=run-mode:,soc-version:,
 OPTS=$(getopt -a --options $SHORT --longoptions $LONG -- "$@")

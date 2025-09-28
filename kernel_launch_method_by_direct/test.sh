@@ -1,11 +1,11 @@
 batch=1
-seqLen=4096
-headQ=8
+seqLen=2048
+headQ=1
 headK=1
 hdim=128
 topk=4
 buffer=2
-device_id=2
+device_id=7
 
 export LD_LIBRARY_PATH=$(pwd)/out/lib:$(pwd)/out/lib64:$LD_LIBRARY_PATH
 
@@ -19,3 +19,5 @@ python scripts/gen_golden_data.py $batch $seqLen $headQ $headK $hdim $topk
 # # msprof op --output=msprof ./ascendc_kernels_bbit $batch $seqLen $headQ $headK $hdim $topk $device_id
 
 python scripts/verify_index_golden.py ./output/output_topk_idx.bin ./output/golden_topk_index.bin $((batch*headK*topk))
+
+python scripts/verify_index_golden.py ./output/output_topk_idx.bin ./output/golden_topk_value.bin $((batch*headK*topk))

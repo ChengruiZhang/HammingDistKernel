@@ -3,25 +3,25 @@
     "shape": [
       1,
       1,
-      8,
-      16
+      1,
+      8
     ],
-    "dtype": "uint8"
+    "dtype": "uint16"
   },
   "khash_packed": {
     "shape": [
       1,
       4096,
       1,
-      16
+      8
     ],
-    "dtype": "uint8"
+    "dtype": "uint16"
   },
   "hid_dim": 128,
-  "group": 8,
+  "group": 1,
   "seqLen": 4096,
   "headK": 1,
-  "headQ": 8,
+  "headQ": 1,
   "chunk_size": 16,
   "chunk_reduce": "max",
   "take_largest": true,

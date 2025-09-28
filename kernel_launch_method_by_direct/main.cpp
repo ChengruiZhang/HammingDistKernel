@@ -65,7 +65,7 @@ int32_t main(int32_t argc, char *argv[])
 
     size_t qHashFileSize = batchSize * 1 * headQ * hidDim / sizeof(GM_qHash_type) * sizeof(GM_qHash_type); // uint16_t represent 16 bool
     size_t kHashFileSize = batchSize * seqLen * headK * hidDim / sizeof(GM_kHash_type) * sizeof(GM_kHash_type);
-    auto topKPad = (topK + chunkSize - 1) / chunkSize * chunkSize;
+    auto topKPad = (topK + 8 - 1) / 8 * 8;
     size_t indexFileSize = batchSize * headK * topKPad * sizeof(GM_idx_type);
 
     // size_t inputSize_srcGmValue = OUTTER * INNER * sizeof(float);

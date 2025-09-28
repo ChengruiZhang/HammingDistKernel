@@ -17,6 +17,7 @@
 
 using namespace AscendC;
 
+
 namespace MyCustomKernel {
 // struct VecTiling {
 
@@ -189,8 +190,6 @@ public:
     */
     __aicore__ inline void Hamming(uint32_t group, uint32_t HDim, uint32_t seqLen, uint32_t curTile){
 
-        // test
-        
         // // Deque from outside
         AscendC::LocalTensor<hashDataType> qHash = qHashUB.DeQue<hashDataType>();
         AscendC::LocalTensor<hashDataType> kHash = kHashUB.DeQue<hashDataType>();
@@ -202,19 +201,13 @@ public:
         auto XOR = XORRightTmp;
         auto rightShift = XORRightTmp[param_.hammingXORSingleTilingSize];
         auto tmp = XORRightTmp[2 * param_.hammingXORSingleTilingSize];
-        // AscendC::LocalTensor<hashDataType> XOR = XORUB.AllocTensor<hashDataType>();
-        // AscendC::LocalTensor<hashDataType> rightShift = hammingRightUB.AllocTensor<hashDataType>();
-        // AscendC::LocalTensor<hashDataType> tmp = tmpWorkSpaceUB.AllocTensor<hashDataType>();
 
         AscendC::LocalTensor<computeDataType> hammingCastCum = hammingCastCumUB.AllocTensor<computeDataType>();
         auto hammingCast = hammingCastCum;
         auto hammingCum = hammingCastCum[param_.hammingCastSingleTilingSize];
-        // AscendC::LocalTensor<computeDataType> hammingCast = hammingCastUB.AllocTensor<computeDataType>();
-        // AscendC::LocalTensor<computeDataType> hammingCum = hammingCumUB.AllocTensor<computeDataType>();
         AscendC::LocalTensor<computeDataType> hammingLastRow = hammingLastRowUB.AllocTensor<computeDataType>();
         AscendC::LocalTensor<computeDataType> hammingSum = hammingSumUB.AllocTensor<computeDataType>();
         AscendC::LocalTensor<computeDataType> hammingReduce = hammingReduceUB.AllocTensor<computeDataType>();
-        // AscendC::LocalTensor<computeDataType> hammingResult = hammingResultUB.AllocTensor<computeDataType>();
         AscendC::LocalTensor<computeDataType> reduceSumWorkSpace = reduceSumWorkSpaceUB.AllocTensor<computeDataType>();
 
         static constexpr AscendC::CumSumConfig cumSumConfig{false, false, true};
@@ -230,25 +223,19 @@ public:
         // TBD 由于后续需要做转置，因此seqlen需要输入进hamming中，并且转置后做一次掩码
         // 每次针对一个seqlen进行操作
         for (uint32_t i = 0; i < seqLen; i++){
-            
-            // AscendC::PRINTF("%d\n", i);
 
             for (size_t j = 0; j < group; j++)
             {
                 DataCopy(tmp[j * param_.hidDimCompressPadNum], kHash[i * param_.hidDimCompressPadNum], param_.hidDimCompressPadNum);
             }
             PipeBarrier<PIPE_V>();
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("copy khash\n");
-                AscendC::DumpTensor(tmp, 1, 128);
-            }
+            // if(GetBlockIdx() == 0 && i == 0){
+            //     AscendC::PRINTF("copy khash\n");
+            //     AscendC::DumpTensor(tmp, 1, 128);
+            // }
             
             Xor(XOR, qHash, tmp, param_.hidDimCompressPadNum * group);
             PipeBarrier<PIPE_V>();
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("XOR\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
 
             // Hamming compute -- 没有同步问题
             // x = x - ((x >> 1) & 0x5555555555555555ULL);              // 每2位计数
@@ -258,11 +245,6 @@ public:
             PipeBarrier<PIPE_V>();
             Sub(XOR, XOR, rightShift, group * 16); // XOR = x - ((x >> 1) & 0x5555555555555555ULL)
             PipeBarrier<PIPE_V>();
-            
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("2 bit\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
 
             // x = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL); // 每4位计数
             ShiftRight(rightShift, XOR, (hashDataType)2, group * 16);
@@ -274,11 +256,6 @@ public:
             Add(XOR, XOR, rightShift, group * 16); // XOR = (x & 0x3333333333333333ULL) + ((x >> 2) & 0x3333333333333333ULL)
             PipeBarrier<PIPE_V>();
 
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("4 bit\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
-
             // x = (x + (x >> 4)) & 0x0F0F0F0F0F0F0F0FULL;               // 每8位计数
             ShiftRight(rightShift, XOR, (hashDataType)4, group * 16);
             PipeBarrier<PIPE_V>();
@@ -287,68 +264,35 @@ public:
             And(XOR, XOR, scalar[32 * group], group * 16); // scalar[32-40] = 0x0F0F0F0F0F0F0F0ULL
             PipeBarrier<PIPE_V>();
 
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("8 bit\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
-
             // x = x + (x >> 8);                                        // 每16位
             ShiftRight(rightShift, XOR, (hashDataType)8, group * 16);
             PipeBarrier<PIPE_V>();
             Add(XOR, XOR, rightShift, group * 16);
             PipeBarrier<PIPE_V>();
 
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("16 bit\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
-
             // x = x & 0x1F;                             // 最终结果
             And(XOR, XOR, scalar[48 * group], group * 16);       // scalar[48-56] = 0x000000000000007F
             PipeBarrier<PIPE_V>();
-
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("final\n");
-                AscendC::DumpTensor(XOR, 1, 128);
-            }
 
             // 计算完一个SeqLen的Hamming，接下来进行Cast -- sync error
             AscendC::RoundMode roundMode = AscendC::RoundMode::CAST_ROUND;
             Cast(hammingCast, XOR, roundMode, group * 16); // hammingLastRow [1, 16] -- 16是DATABLOCKLEN
             PipeBarrier<PIPE_V>();
 
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("cast\n");
-                AscendC::DumpTensor(hammingCast, 1, 128);
-            }
-
             // 计算完一个SeqLen的Hamming，接下来进行CumSum
             CumSum<computeDataType, cumSumConfig>(hammingCum, hammingLastRow, hammingCast, cumSumInfo);      // hammingSum [T_S, 16] -- 16是DATABLOCKLEN
             PipeBarrier<PIPE_V>();
-            
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("cumsum lastrow\n");
-                AscendC::DumpTensor(hammingLastRow, 1, 128);
-            }
+
 
             // copy hammingLastRow to hammingSum
             Copy(hammingSum[i * 16], hammingLastRow, 8, 1, {0, 0, 0, 0}); //
             PipeBarrier<PIPE_V>();
 
-            if(GetBlockIdx() == 0 && i == 0){
-                AscendC::PRINTF("copy sum\n");
-                AscendC::DumpTensor(hammingSum, 1, 128);
-            }
         }
 
-        // if(GetBlockIdx() == 0){
-        //     // [SeqLen, DATABLOCKLEN]
-        //     AscendC::PRINTF("copy sum total\n");
-        //     AscendC::DumpTensor(hammingSum, 1, 128);
-        // }
 
         // 算完cumsum后，需要对sum进行求reducesum [T_seqLen, DATABLOCKLEN] -> [T_seqLen, 1] -- TBD -- 当前假定seqLen都是整数倍
-        BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, (seqLen * 16 + 128 - 1) / 128, 128, 1, 1, 8);
+        BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, (seqLen * 16 + 128 - 1) / 128, BlockReduceSumMask, 1, 1, 8);
         PipeBarrier<PIPE_V>();
         // // 尾块
         // BlockReduceSum<computeDataType, true>(hammingReduce, hammingSum, seqlen / 8, 128, 8, 8, 8);
@@ -456,9 +400,6 @@ public:
                                     int64_t rightPadding = 0, int64_t paddingValue = 0,
                                     int64_t dstStride = 0, int64_t srcStride = 0){
 
-        // AscendC::PRINTF("%d\n", blockLen);
-        // AscendC::PRINTF("%d\n", blockCount);
-        
         AscendC::LocalTensor<T> kHashLocal = kHashUB.AllocTensor<T>();
 
         DataCopyExtParams dataCopyExtParams;
@@ -484,8 +425,13 @@ public:
     __aicore__ inline void ChunkCompress(uint32_t chunkSize,
                                          uint32_t chunkMode){
         
+
         AscendC::LocalTensor<computeDataType> inTensor = resultUB.DeQue<computeDataType>();
         AscendC::LocalTensor<computeDataType> outTensor = resultChunkUB.DeQue<computeDataType>();
+        // if (true){
+        //     AscendC::PRINTF("result\n");
+        //     AscendC::DumpTensor(inTensor, 1, param_.indexChunkSize);
+        // }
         if (chunkMode == 0) { // BlockMax
             ReduceMaxCustom(outTensor, inTensor, static_cast<uint8_t>(chunkSize));
         }
@@ -554,26 +500,13 @@ public:
         // VECOUT
         pipe.InitBuffer(indexChunkUB, 1, sizeof(indexDataType) * tilingData.indexChunkSingleSize);
         pipe.InitBuffer(topKChunkUB, 2, sizeof(indexDataType) * tilingData.topKChunkSingleSize);
+        pipe.InitBuffer(topKValueChunkUB, 2, sizeof(computeDataType) * tilingData.topKChunkSingleSize);
 
-
-        // srcGlobal1.SetGlobalBuffer(reinterpret_cast<__gm__ hashDataType *>(srcGmValue), inDataSize);
-        // srcGlobal2.SetGlobalBuffer(reinterpret_cast<__gm__ indexDataType *>(srcGmIndex), inputdexDataSize);
-        // srcGlobal3.SetGlobalBuffer(reinterpret_cast<__gm__ bool *>(finishGm), finishLocalBytes / sizeof(bool));
-        // dstGlobal1.SetGlobalBuffer(reinterpret_cast<__gm__ hashDataType *>(dstGmValue), outValueDataSize);
-        // dstGlobal2.SetGlobalBuffer(reinterpret_cast<__gm__ indexDataType *>(dstGmIndex), outIndexDataSize);
-
-        // pipe.InitBuffer(inQueueX1, 1, inDataSize * sizeof(hashDataType));
-        // pipe.InitBuffer(inQueueX2, 1, inputdexDataSize * sizeof(indexDataType));
-        // pipe.InitBuffer(inQueueX3, 1, finishLocalBytes);
-        // pipe.InitBuffer(outQueueY1, 1, outValueDataSize * sizeof(hashDataType));
-        // pipe.InitBuffer(outQueueY2, 1, outIndexDataSize * sizeof(indexDataType));
     }
 
     __aicore__ inline void Process(){
 
         uint8_t blocknum = GetBlockNum();
-        // AscendC::PRINTF("blocknum: %d\n", blocknum);
-        // AscendC::PRINTF("param_.totalNum: %d\n", param_.totalNum);
 
         // Alloc and EnQue Scalar Tensor;
         InitScalar<hashDataType>();
@@ -581,11 +514,12 @@ public:
         resultUB.EnQue<computeDataType>(result);
         
         // Alloc and EnQue Index
-        AscendC::LocalTensor<indexDataType> indexChunk = indexChunkUB.AllocTensor<indexDataType>();
-        ArithProgression<indexDataType>(indexChunk, static_cast<indexDataType>(0), static_cast<indexDataType>(1), static_cast<indexDataType>(param_.indexChunkSize));
-        PipeBarrier<PIPE_V>();
+        // AscendC::LocalTensor<indexDataType> indexChunk = indexChunkUB.AllocTensor<indexDataType>();
+        // ArithProgression<indexDataType>(indexChunk, static_cast<indexDataType>(0), static_cast<indexDataType>(1), static_cast<indexDataType>(param_.indexChunkSize));
+        // PipeBarrier<PIPE_V>();
         
         AscendC::LocalTensor<computeDataType> resultChunk;
+        AscendC::LocalTensor<computeDataType> topKValueChunk;
         AscendC::LocalTensor<bool> finishLocal;
         AscendC::LocalTensor<indexDataType> topKChunk;
         // AscendC::LocalTensor<uint8_t> tmpTopKLocal;
@@ -602,10 +536,10 @@ public:
 
             resultChunk = resultChunkUB.AllocTensor<computeDataType>();
             topKChunk = topKChunkUB.AllocTensor<indexDataType>();
-            // topKValueChunk = topKValueChunkUB.AllocTensor<computeDataType>();
+            topKValueChunk = topKValueChunkUB.AllocTensor<computeDataType>();
             resultChunkUB.EnQue<computeDataType>(resultChunk);
             topKChunkUB.EnQue<indexDataType>(topKChunk);
-            // topKValueChunkUB.EnQue<computeDataType>(topKValueChunk);
+            topKValueChunkUB.EnQue<computeDataType>(topKValueChunk);
 
             // 每个迭代仅需要搬运一次QHash即可
             // EnQue QHash
@@ -631,43 +565,38 @@ public:
                     int64_t(param_.hidDimCompressAddNum), 
                     0, 0, 0);
 
-                // AscendC::LocalTensor<hashDataType> kHashLocal = kHashUB.DeQue<hashDataType>();
-                // kHashUB.EnQue<hashDataType>(kHashLocal); // 这里需要重新enque，保证在hamming中可以被使用
-                
                 // // Hammimng: deque KHash, enque Result
                 Hamming(param_.groupNum, param_.hidDimCompressPadNum, curSeqLen, curTile);
                 PipeBarrier<PIPE_ALL>();
-
-                // if (core_idx == 0){
-                //     AscendC::DumpTensor(kHashLocal, 1, 128);
-                // }
-
-                // // Free KHash Tensor -- 最后一次deque，清空kHashUB的队列
-                // AscendC::LocalTensor<hashDataType> kHashLocal = kHashUB.DeQue<hashDataType>();
-                // kHashUB.FreeTensor(kHashLocal);
             }
 
             ChunkCompress(param_.chunkSize, param_.chunkMode);
-            PipeBarrier<PIPE_ALL>();
+            PipeBarrier<PIPE_V>();
 
             if (core_idx == 0){
                 AscendC::PRINTF("resultChunk\n");
                 AscendC::DumpTensor(resultChunk, 1, param_.indexChunkSize);
+                AscendC::PRINTF("k:%d, outter: %d, inner: %d, n: %d\n", k, outter, inner, n);
+                // AscendC::PRINTF("topKTilingData.allDataSize :%d, innerDataSize : %d \n", param_.topKTilingData.allDataSize, param_.topKTilingData.innerDataSize );
             }
             
-            // // DeQue topKChunk, indexChunk, resultChunk
-            // // EnQue indexChunk
-            // TopKCustom(param_.topKCompressed);
-            // // PipeBarrier<PIPE_ALL>();
+            TopK<computeDataType, false, false, true>(topKValueChunk, topKChunk, resultChunk, index_tmp, finish_tmp, k, param_.topKTilingData, {static_cast<int32_t>(outter), static_cast<int32_t>(inner), static_cast<int32_t>(n)}, false);
+            PipeBarrier<PIPE_V>();
 
-            // CopyOutIndex(topKChunkUB);
-            // PipeBarrier<PIPE_ALL>();
+            if (core_idx == 0){
+                AscendC::PRINTF("topKChunk\n");
+                AscendC::DumpTensor(topKChunk, 1, param_.indexChunkSize);
+            }
+
+            AscendC::PRINTF("DataCopy\n");
+            DataCopy(indexGm, topKChunk, k);
 
             // Free QHash Tensor -- 最后一次deque，清空qHashUB的队列
             AscendC::LocalTensor<hashDataType> qHashLocal = qHashUB.DeQue<hashDataType>();
             qHashUB.FreeTensor(qHashLocal);
-            // resultChunkUB.FreeTensor(resultChunk);
-            // topKChunkUB.FreeTensor(topKChunk);
+
+            resultChunkUB.FreeTensor(resultChunk);
+            topKChunkUB.FreeTensor(topKChunk);
 
             // PipeBarrier<PIPE_ALL>();
         }
@@ -677,94 +606,12 @@ public:
         resultUB.FreeTensor(result);
         AscendC::LocalTensor<hashDataType> scalarLocal = scalarUB.DeQue<hashDataType>();
         scalarUB.FreeTensor(scalarLocal);
+        // indexChunkUB.FreeTensor(indexChunk);
 
         // *****************  Old  *****************
 
     }
 
-    // __aicore__ inline void Process() {
-    //     CopyIn();
-    //     Compute();
-    //     CopyOut();
-    // }
-
-private:
-    __aicore__ inline void CopyIn() {
-        // AscendC::LocalTensor<hashDataType> srcLocalValue = inQueueX1.AllocTensor<hashDataType>();
-        // AscendC::LocalTensor<indexDataType> srcLocalIndex = inQueueX2.AllocTensor<indexDataType>();
-        // AscendC::LocalTensor<bool> srcLocalFinish = inQueueX3.AllocTensor<bool>();
-        // AscendC::DataCopy(srcLocalValue, srcGlobal1, inDataSize);
-        // AscendC::DataCopy(srcLocalIndex, srcGlobal2, inputdexDataSize);
-        // AscendC::DataCopy(srcLocalFinish, srcGlobal3, finishLocalBytes / sizeof(bool));
-
-        // inQueueX1.EnQue(srcLocalValue);
-        // inQueueX2.EnQue(srcLocalIndex);
-        // inQueueX3.EnQue(srcLocalFinish);
-    }
-    __aicore__ inline void Compute() {
-        // AscendC::LocalTensor<hashDataType> dstLocalValue = outQueueY1.AllocTensor<hashDataType>();
-        // AscendC::LocalTensor<indexDataType> dstLocalIndex = outQueueY2.AllocTensor<indexDataType>();
-
-        // AscendC::LocalTensor<hashDataType> srcLocalValue = inQueueX1.DeQue<hashDataType>();
-        // AscendC::LocalTensor<indexDataType> srcLocalIndex = inQueueX2.DeQue<indexDataType>();
-        // AscendC::LocalTensor<bool> srcLocalFinish = inQueueX3.DeQue<bool>();
-
-        // auto newTopkMode = AscendC::TopKMode::TOPK_NORMAL;
-        // if (isSmallMode) {
-        //     newTopkMode = AscendC::TopKMode::TOPK_NSMALL;
-        // }
-        // auto topKInfo = AscendC::TopKInfo();
-        // topKInfo.outter = outter;
-        // topKInfo.inner = inner;
-        // topKInfo.n = n;
-
-        // hashDataType scalar1(0);
-        // AscendC::Duplicate<hashDataType>(dstLocalValue, scalar1, outValueDataSize);
-        // indexDataType scalar2(0);
-        // AscendC::Duplicate<indexDataType>(dstLocalIndex, scalar2, outIndexDataSize);
-        // if (!tmpLocal) {
-        //     if (isSmallMode) {
-        //         AscendC::TopK<hashDataType, isInitIndex, isHasfinish, isReuseSrc, AscendC::TopKMode::TOPK_NSMALL>(dstLocalValue,
-        //             dstLocalIndex, srcLocalValue, srcLocalIndex, srcLocalFinish, k, topKTilingData, topKInfo,
-        //             isLargest);
-        //     } else {
-        //         AscendC::TopK<hashDataType, isInitIndex, isHasfinish, isReuseSrc, AscendC::TopKMode::TOPK_NORMAL>(dstLocalValue,
-        //             dstLocalIndex, srcLocalValue, srcLocalIndex, srcLocalFinish, k, topKTilingData, topKInfo,
-        //             isLargest);
-        //     }
-        // } else {
-        //     if (tmplocalBytes % LOCAL_BYTES != 0) {
-        //         tmplocalBytes = (tmplocalBytes + LOCAL_BYTES - 1) / LOCAL_BYTES * LOCAL_BYTES;
-        //     }
-        //     pipe.InitBuffer(tmplocalBuf, tmplocalBytes);
-        //     AscendC::LocalTensor<uint8_t> tmplocalTensor = tmplocalBuf.Get<uint8_t>();
-        //     if (isSmallMode) {
-        //         AscendC::TopK<hashDataType, isInitIndex, isHasfinish, isReuseSrc, AscendC::TopKMode::TOPK_NSMALL>(dstLocalValue,
-        //             dstLocalIndex, srcLocalValue, srcLocalIndex, srcLocalFinish, tmplocalTensor, 
-        //             k, topKTilingData, topKInfo, isLargest);
-        //     } else {
-        //         AscendC::TopK<hashDataType, isInitIndex, isHasfinish, isReuseSrc, AscendC::TopKMode::TOPK_NORMAL>(dstLocalValue,
-        //             dstLocalIndex, srcLocalValue, srcLocalIndex, srcLocalFinish, tmplocalTensor, 
-        //             k, topKTilingData, topKInfo, isLargest);
-        //     }
-        // }
-
-        // outQueueY1.EnQue<hashDataType>(dstLocalValue);
-        // outQueueY2.EnQue<indexDataType>(dstLocalIndex);
-
-        // inQueueX1.FreeTensor(srcLocalValue);
-        // inQueueX2.FreeTensor(srcLocalIndex);
-        // inQueueX3.FreeTensor(srcLocalFinish);
-    }
-    __aicore__ inline void CopyOut() {
-        // AscendC::LocalTensor<hashDataType> dstLocalValue = outQueueY1.DeQue<hashDataType>();
-        // AscendC::LocalTensor<indexDataType> dstLocalIndex = outQueueY2.DeQue<indexDataType>();
-
-        // AscendC::DataCopy(dstGlobal1, dstLocalValue, outValueDataSize);
-        // AscendC::DataCopy(dstGlobal2, dstLocalIndex, outIndexDataSize);
-        // outQueueY1.FreeTensor(dstLocalValue);
-        // outQueueY2.FreeTensor(dstLocalIndex);
-    }
 
 private:
     // AscendC::GlobalTensor<hashDataType> srcGlobal1;
@@ -804,7 +651,11 @@ private:
     AscendC::TQue<AscendC::TPosition::VECOUT, 1> resultUB; // hamming dist result
     AscendC::TQue<AscendC::TPosition::VECOUT, 1> indexChunkUB; // index for topk
     AscendC::TQue<AscendC::TPosition::VECOUT, 1> topKChunkUB; // topk result
+    AscendC::TQue<AscendC::TPosition::VECOUT, 1> topKValueChunkUB; // topk result
 
+
+    const LocalTensor<indexDataType> index_tmp;
+    const LocalTensor<bool> finish_tmp;
 
     uint32_t tmplocalBytes = 0;
     uint32_t inDataSize = 0;
@@ -824,6 +675,9 @@ private:
     bool isSmallMode = false;
 
     VecTiling param_;
+    // uint64_t BlockReduceSumMask[2] = {0xFF00FF00FF00FF00, 0xFF00FF00FF00FF00};
+    uint64_t BlockReduceSumMask[2] = {0x00FF00FF00FF00FF, 0x00FF00FF00FF00FF};
+
 };
 
 } // namespace MyCustomKernel
