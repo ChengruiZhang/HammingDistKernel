@@ -1,7 +1,9 @@
 
 # demo验证
 
-本算子仅作为demo验证，在8.3.RC1环境下运行
+本算子仅作为demo验证，不可完整跑全shape下的情况。
+
+在8.3.RC1环境下运行
 
 ```
   cd kernel_launch_method_by_direct
@@ -27,3 +29,8 @@
 
 说明中间计算过程花费了130+us，远超预期，故验证该方法不可行
 
+# 性能低效分析
+
+1. 从HBM搬运数据到UB上的时候，每次搬运的数据量为[..., hidDim]，其中hidDim设置为128个bit，8个int16，但由于后续处理中，每次处理的数据必须是以16个int16为单位，且不同行的hidDim在后续需要做copy操作，无法直接填充在后面。这导致了每一次搬运的时候都需要对所有的hidDim进行padding，无法连续从内存搬运 -- 性能低下
+2. 由于padding缘故，Vector算力也会有一半浪费
+3. hamming距离的计算中有过多的vector计算+barrier（16*SeqLen个Vector计算），且右移、与等位操作并没有很高效，仍需要花费较多时间
