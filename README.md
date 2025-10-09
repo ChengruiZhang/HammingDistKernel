@@ -3,6 +3,8 @@
 
 本算子仅作为demo验证，不可完整跑全shape下的情况。
 
+核心代码在./kernel_impl/topk_custom.h
+
 在8.3.RC1环境下运行
 
 ```
